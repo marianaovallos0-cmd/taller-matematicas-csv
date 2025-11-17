@@ -11,61 +11,108 @@ st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="cen
 st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
 
+# ---- 1. Subir archivo ----
 archivo = st.file_uploader("Sube un archivo CSV", type=["csv"])
 
 if archivo is not None:
     df, error = cargar_csv(archivo)
+
+    # Si hubo error → mostrar y detener
     if error:
-        st.error(f"No se pudo cargar el archivo: {error}")
-    else:
-        st.subheader("Datos originales")
-        st.dataframe(df)
+        st.error(error)
+        st.stop()
 
-        st.subheader("Seleccione la operación")
-        opcion = st.selectbox(
-            "¿Qué quieres hacer?",
-            ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
-        )
+    # Si todo bien → mostrar datos
+    st.subheader("Datos originales")
+    st.dataframe(df)
 
-        if opcion == "Relleno de valores faltantes":
-            metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
-            if st.button("Aplicar relleno"):
+    # ---- 2. Elegir operación ----
+    st.subheader("Seleccione la operación")
+    opcion = st.selectbox(
+        "¿Qué quieres hacer?",
+        ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
+    )
+
+    # ---- 3. Relleno de valores faltantes ----
+    if opcion == "Relleno de valores faltantes":
+        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
+
+        if st.button("Aplicar relleno"):
+            try:
                 resultado = aplicar_imputacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button("Descargar resultado (CSV)", data=csv, file_name="resultado_imputacion.csv", mime="text/csv")
 
-        elif opcion == "Normalización":
-            metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
-            if st.button("Aplicar normalización"):
+                csv = resultado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_imputacion.csv",
+                    mime="text/csv"
+                )
+
+            except Exception as e:
+                st.error(f"❌ Error durante la imputación: {e}")
+
+    # ---- 4. Normalización ----
+    elif opcion == "Normalización":
+        metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
+
+        if st.button("Aplicar normalización"):
+            try:
                 resultado = aplicar_normalizacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button("Descargar resultado (CSV)", data=csv, file_name="resultado_normalizacion.csv", mime="text/csv")
 
-        elif opcion == "Discretización":
-            metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
-            if st.button("Aplicar discretización"):
+                csv = resultado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_normalizacion.csv",
+                    mime="text/csv"
+                )
+
+            except Exception as e:
+                st.error(f"❌ Error durante la normalización: {e}")
+
+    # ---- 5. Discretización ----
+    elif opcion == "Discretización":
+        metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
+
+        if st.button("Aplicar discretización"):
+            try:
                 resultado = aplicar_discretizacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
+
                 csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button("Descargar resultado (CSV)", data=csv, file_name="resultado_discretizacion.csv", mime="text/csv")
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_discretizacion.csv",
+                    mime="text/csv"
+                )
 
-        elif opcion == "Árbol de decisión":
-            columnas = list(df.columns)
-            nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+            except Exception as e:
+                st.error(f"❌ Error durante la discretización: {e}")
 
-            if st.button("Entrenar árbol"):
-                try:
-                    precision, modelo, reglas = aplicar_categorizacion(df.copy(), nombre_objetivo)
-                    st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
+    # ---- 6. Árbol de decisión ----
+    elif opcion == "Árbol de decisión":
+        columnas = list(df.columns)
+        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
 
-                    st.subheader("Reglas del árbol (texto)")
-                    st.text(reglas)
+        if st.button("Entrenar árbol"):
+            try:
+                precision, modelo, reglas = aplicar_categorizacion(df.copy(), nombre_objetivo)
 
-                except Exception as e:
-                    st.error(f"Ocurrió un error al entrenar el árbol: {e}")
+                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
 
+                st.subheader("Reglas del árbol (texto)")
+                st.text(reglas)
+
+            except Exception as e:
+                st.error(
+                    "❌ No se pudo entrenar el árbol de decisión. "
+                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
+                    f"Detalles: {e}"
+                )

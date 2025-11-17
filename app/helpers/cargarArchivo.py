@@ -3,30 +3,61 @@ from model.exceptions import ArchivoInvalidoException, TablaInvalidaException
 
 def cargar_csv(file):
     """
-    Carga un archivo CSV subido por el usuario.
-    Devuelve (dataframe, None) si salió bien, o (None, mensaje_error) si falla.
+    Carga un archivo CSV con validaciones estrictas.
+    Retorna (df, None) si funciona.
+    Retorna (None, mensaje_error) si falla.
     """
 
-    # 1. Validar que el archivo sea CSV estrictamente
+    # 1. Validación estricta de extensión
     if not file.name.lower().endswith(".csv"):
-        return None, "❌ El archivo debe ser formato CSV estrictamente."
+        return None, "Extensión no válida. Solo se aceptan archivos .csv"
+
+    # 2. Leer contenido para verificar si tiene estructura de tabla
+    contenido = file.getvalue().decode("utf-8", errors="ignore")
+
+    # Validar que tenga separadores
+    if "," not in contenido and ";" not in contenido and "\t" not in contenido:
+        return None, "El archivo NO contiene separadores. Parece texto plano"
 
     try:
-        # 2. Intentar leer
-        df = pd.read_csv(file)
+        # Intentar leer CSV separando por coma o punto y coma
+        try:
+            df = pd.read_csv(file)
+        except Exception:
+            file.seek(0)
+            try:
+                df = pd.read_csv(file, sep=";")
+            except Exception:
+                raise ArchivoInvalidoException(
+                    "No se pudo leer el archivo. Asegúrate de que sea un CSV válido y no un TXT renombrado."
+                )
 
-        # 3. Validar que tenga columnas
+        # 3. Validar columnas
         if df.empty or len(df.columns) == 0:
-            raise TablaInvalidaException("❌ El archivo no contiene una tabla válida.")
+            raise TablaInvalidaException(
+                "El archivo no contiene columnas. El CSV debe tener una estructura de tabla."
+            )
 
-        # 4. Validar que tenga filas
+        # 4. Validar filas (mínimo 1 fila de datos)
         if df.shape[0] == 0:
-            raise TablaInvalidaException("❌ El archivo está vacío, no hay datos para procesar.")
+            raise TablaInvalidaException(
+                "El archivo está vacío. Debe contener datos."
+            )
+
+        # 5. Validar que no sea texto plano disfrazado
+        if len(df.columns) == 1:
+            col = df.columns[0].lower()
+            if df[col].dtype == object:
+                # Contar filas que NO parecen valores tabulares
+                if df[col].str.contains(r"[a-zA-Z]").sum() > 3:
+                    raise ArchivoInvalidoException(
+                        "El archivo cargado parece ser texto plano y NO una tabla."
+                    )
 
         return df, None
 
-    except TablaInvalidaException as e:
+    except (ArchivoInvalidoException, TablaInvalidaException) as e:
         return None, str(e)
 
     except Exception:
-        return None, "❌ El archivo no tiene estructura de tabla válida (debe tener columnas separadas por comas)."
+        return None, "Error desconocido: el archivo no tiene estructura válida."
