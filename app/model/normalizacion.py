@@ -8,15 +8,17 @@ def z_score(df):
     df[numeric.columns] = scaler.fit_transform(numeric)
     return df
 
-def min_max(df):
-    scaler = MinMaxScaler()
+def min_max(df, min_nuevo=0, max_nuevo=1):
     numeric = df.select_dtypes(include=['number'])
-    df[numeric.columns] = scaler.fit_transform(numeric)
+
+    min_actual = numeric.min()
+    max_actual = numeric.max()
+
+    df[numeric.columns] = ((numeric - min_actual) / (max_actual - min_actual)) * (max_nuevo - min_nuevo) + min_nuevo
+
     return df
 
 def logaritmica(df):
     numeric = df.select_dtypes(include=['number'])
-    # usar log1p para no fallar con ceros
     df[numeric.columns] = numeric.apply(lambda x: np.log1p(x))
     return df
-git
