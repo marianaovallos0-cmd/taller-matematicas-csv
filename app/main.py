@@ -8,8 +8,7 @@ from controller import (
 
 st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
 
-st.title(st.title("PRUEBA — SI VES ESTO, SE ACTUALIZÓ")
-)
+st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
 
 archivo = st.file_uploader("Sube un archivo CSV", type=["csv"])
