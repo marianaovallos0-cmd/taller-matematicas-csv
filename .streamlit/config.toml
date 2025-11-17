@@ -1,7 +1,6 @@
 [theme]
-primaryColor="#B80000"
-backgroundColor="#d84444ff"
-secondaryBackgroundColor="#ffc2c2ff"
-textColor="#000000"
-font="sans serif"
-
+primaryColor = "#BB86FC"             git
+backgroundColor = "#121212"          
+secondaryBackgroundColor = "#1E1E1E"  
+textColor = "#FFFFFF"                 
+font = "sans serif"
