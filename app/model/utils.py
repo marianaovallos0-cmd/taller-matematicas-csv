@@ -1,7 +1,4 @@
-# Archivo vacío o con utilidades pequeñas.
-# Por ahora lo dejamos preparado por si quieres añadir funciones de ayuda.
-def resumen_dataframe(df, n=5):
-    """
-    Devuelve un resumen sencillo: primeras n filas y descripción.
-    """
-    return df.head(n), df.describe(include='all')
+# Archivo de utilidades sencillo (puedes agregar más funciones si las necesitas)
+
+def ejemplo_util():
+    return "esto es una utilidad"

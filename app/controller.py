@@ -4,7 +4,7 @@ def aplicar_imputacion(df, metodo):
     if metodo == "KNN":
         return valoresFaltantes.imputar_knn(df)
     if metodo == "K-Modes":
-        return valoresFaltantes.imputar_kmodes(df)
+        return valoresFaltantes.imputar_k_modes(df)
     if metodo == "Mean":
         return valoresFaltantes.imputar_media(df)
     if metodo == "Median":
@@ -19,22 +19,16 @@ def aplicar_normalizacion(df, metodo):
     if metodo == "Min-Max":
         return normalizacion.min_max(df)
     if metodo == "Log":
-        return normalizacion.logaritmica(df)
+        return normalizacion.log_norm(df)
     return df
 
 def aplicar_discretizacion(df, metodo):
     if metodo == "Equal Width":
-        return discretizacion.ancho_igual(df)
+        return discretizacion.discretizar_ancho_igual(df)
     if metodo == "Equal Frequency":
-        return discretizacion.frecuencia_igual(df)
+        return discretizacion.discretizar_frecuencia_igual(df)
     return df
 
-def aplicar_arbol_decision(df, objetivo):
-    # devuelve (precision, modelo)
-    return categorizacion.entrenar_arbol_decision(df, objetivo)
-
-# alias para compatibilidad con main.py si importaba otro nombre
-apply_imputation = aplicar_imputacion
-apply_normalization = aplicar_normalizacion
-apply_discretization = aplicar_discretizacion
-apply_decision_tree = aplicar_arbol_decision
+def aplicar_categorizacion(df, nombre_objetivo):
+    # ahora devuelve precisión, modelo, reglas
+    return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)
