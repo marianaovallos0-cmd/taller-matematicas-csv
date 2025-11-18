@@ -1,5 +1,5 @@
-streamlit
 pandas
-scikit-learn
 numpy
-kmodes
+scikit-learn
+streamlit
+matplotlib
