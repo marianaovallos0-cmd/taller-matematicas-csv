@@ -3,7 +3,7 @@ import pandas as pd
 from helpers.cargarArchivo import cargar_csv
 from controller import (
     aplicar_imputacion, aplicar_normalizacion,
-    aplicar_discretizacion, aplicar_categorizacion
+    aplicar_discretizacion, aplicar_arbol_decision
 )
 
 st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
