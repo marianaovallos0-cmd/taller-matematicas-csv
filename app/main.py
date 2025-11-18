@@ -6,7 +6,8 @@ from controller import (
     aplicar_discretizacion, aplicar_categorizacion
 )
 
-st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
+st.set_page_config(
+    page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
 
 st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
@@ -30,12 +31,14 @@ if archivo is not None:
     st.subheader("Seleccione la operación")
     opcion = st.selectbox(
         "¿Qué quieres hacer?",
-        ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
+        ["Relleno de valores faltantes", "Normalización",
+            "Discretización", "Árbol de decisión"]
     )
 
     # ---- 3. Relleno de valores faltantes ----
     if opcion == "Relleno de valores faltantes":
-        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
+        metodo = st.selectbox(
+            "Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
 
         if st.button("Aplicar relleno"):
             try:
@@ -99,20 +102,32 @@ if archivo is not None:
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
         columnas = list(df.columns)
-        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+
+        st.subheader("Tipo de modelo de Árbol")
+        tipo_arbol = st.radio(
+            "Selecciona el tipo de árbol:",
+            ["Categorización (Clasificación)", "Predicción (Regresión)"]
+        )
+
+        nombre_objetivo = st.selectbox(
+            "Selecciona la columna objetivo (target):", columnas
+        )
 
         if st.button("Entrenar árbol"):
             try:
-                precision, modelo, reglas = aplicar_categorizacion(df.copy(), nombre_objetivo)
+                precision, modelo, reglas, df_resultado = aplicar_arbol_decision(
+                    df.copy(),
+                    nombre_objetivo,
+                    tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
+                )
 
-                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
+                st.success(f"✅ Precisión del modelo: {precision:.2f}")
 
-                st.subheader("Reglas del árbol (texto)")
-                st.text(reglas)
+                st.subheader("📊 Tabla resultante")
+                st.dataframe(df_resultado, use_container_width=True)
+
+                st.subheader("📝 Reglas del Árbol de Decisión")
+                st.text_area("Reglas:", reglas, height=380)
 
             except Exception as e:
-                st.error(
-                    "❌ No se pudo entrenar el árbol de decisión. "
-                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
-                    f"Detalles: {e}"
-                )
+                st.error(f"❌ Error: {e}")
