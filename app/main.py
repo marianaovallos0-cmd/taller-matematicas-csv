@@ -99,20 +99,28 @@ if archivo is not None:
 
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
-        # Elegir columna objetivo
         columna_objetivo = st.selectbox("Selecciona la variable objetivo:", df.columns)
 
         if st.button("Entrenar árbol"):
             try:
                 resultado = aplicar_arbol_decision(df.copy(), columna_objetivo)
 
-                st.subheader("Árbol de decisión")
-                st.text(resultado["arbol"])
+                st.success("Árbol entrenado exitosamente")
 
-                st.subheader("Precisión del modelo")
-                st.write(f"Score: {resultado['score']:.4f}")
+                st.subheader("Columnas usadas en el modelo")
+                st.write(resultado["columnas_usadas"])
 
-                # Descargar árbol como .txt
+                if resultado["columnas_eliminadas"]:
+                    st.subheader("Columnas eliminadas automáticamente (posibles IDs)")
+                    st.write(resultado["columnas_eliminadas"])
+
+                st.subheader("Árbol de decisión simplificado")
+                st.code(resultado["arbol"], language="text")
+
+                st.subheader("Score del modelo")
+                st.write(f"{resultado['score']:.4f}")
+
+                # Botón opcional para descargar árbol como TXT
                 txt_data = resultado["arbol"].encode("utf-8")
                 st.download_button(
                     "Descargar árbol (TXT)",
@@ -123,4 +131,3 @@ if archivo is not None:
 
             except Exception as e:
                 st.error(f"Error al entrenar el árbol: {e}")
-

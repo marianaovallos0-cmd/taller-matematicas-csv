@@ -35,3 +35,4 @@ def aplicar_discretizacion(df, metodo):
 def aplicar_arbol_decision(df, columna_objetivo):
     return categorizacion.entrenar_arbol_decision(df, columna_objetivo)
 
+
