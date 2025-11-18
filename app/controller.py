@@ -32,5 +32,6 @@ def aplicar_discretizacion(df, metodo):
     return df
 
 
-def aplicar_arbol_decision(df, nombre_objetivo, tipo):
-    return categorizacion.entrenar_arbol_decision(df, nombre_objetivo, tipo)
+def aplicar_arbol_decision(df, columna_objetivo):
+    return categorizacion.entrenar_arbol_decision(df, columna_objetivo)
+

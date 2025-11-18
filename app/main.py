@@ -99,37 +99,28 @@ if archivo is not None:
 
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
-        columnas = list(df.columns)
-
-        st.subheader("Tipo de modelo de Árbol")
-        tipo_arbol = st.radio(
-            "Selecciona el tipo:",
-            ["Categorización (Clasificación)", "Predicción (Regresión)"]
-        )
-
-        nombre_objetivo = st.selectbox("Selecciona la columna objetivo:", columnas)
+        # Elegir columna objetivo
+        columna_objetivo = st.selectbox("Selecciona la variable objetivo:", df.columns)
 
         if st.button("Entrenar árbol"):
             try:
-                precision, modelo, reglas, df_resultado, _ = aplicar_arbol_decision(
-                    df.copy(),
-                    nombre_objetivo,
-                    tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
-                )
+                resultado = aplicar_arbol_decision(df.copy(), columna_objetivo)
 
-                st.subheader("Resultado")
-                st.dataframe(df_resultado)
+                st.subheader("Árbol de decisión")
+                st.text(resultado["arbol"])
 
-                csv = df_resultado.to_csv(index=False).encode('utf-8')
+                st.subheader("Precisión del modelo")
+                st.write(f"Score: {resultado['score']:.4f}")
+
+                # Descargar árbol como .txt
+                txt_data = resultado["arbol"].encode("utf-8")
                 st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_arbol_decision.csv",
-                    mime="text/csv"
+                    "Descargar árbol (TXT)",
+                    data=txt_data,
+                    file_name="arbol_decision.txt",
+                    mime="text/plain"
                 )
-
-                st.subheader("Reglas del Árbol de Decisión")
-                st.text_area("Reglas:", reglas, height=380)
 
             except Exception as e:
-                st.error(f"Error durante el árbol de decisión: {e}")
+                st.error(f"Error al entrenar el árbol: {e}")
+
