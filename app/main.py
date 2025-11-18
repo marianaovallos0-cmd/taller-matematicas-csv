@@ -102,25 +102,32 @@ if archivo is not None:
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
         columnas = list(df.columns)
-        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+
+        st.subheader("Tipo de modelo de Árbol")
+        tipo_arbol = st.radio(
+            "Selecciona el tipo de árbol:",
+            ["Categorización (Clasificación)", "Predicción (Regresión)"]
+        )
+
+        nombre_objetivo = st.selectbox(
+            "Selecciona la columna objetivo (target):", columnas
+        )
 
         if st.button("Entrenar árbol"):
             try:
-                # Ahora recibe 5 valores
-                precision, modelo, reglas, df_resultado, hubo_prediccion = aplicar_categorizacion(df.copy(), nombre_objetivo)
+                precision, modelo, reglas, df_resultado = aplicar_arbol_decision(
+                    df.copy(),
+                    nombre_objetivo,
+                    tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
+                )
 
                 st.success(f"✅ Precisión del modelo: {precision:.2f}")
 
-                if hubo_prediccion:
-                    st.success("🎯 Se predijeron valores faltantes")
-                    st.subheader("📊 Tabla con Predicciones")
-                else:
-                    st.info("📋 Tabla Original (sin valores faltantes en objetivo)")
-                
+                st.subheader("📊 Tabla resultante")
                 st.dataframe(df_resultado, use_container_width=True)
-            
+
                 st.subheader("📝 Reglas del Árbol de Decisión")
-                st.text_area("Reglas:", reglas, height=400)
+                st.text_area("Reglas:", reglas, height=380)
 
             except Exception as e:
                 st.error(f"❌ Error: {e}")

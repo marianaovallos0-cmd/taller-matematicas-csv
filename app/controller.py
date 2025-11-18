@@ -29,5 +29,5 @@ def aplicar_discretizacion(df, metodo):
         return discretizacion.discretizar_frecuencia_igual(df)
     return df
 
-def aplicar_categorizacion(df, nombre_objetivo):
-    return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)
+def aplicar_arbol_decision(df, nombre_objetivo, tipo):
+    return categorizacion.entrenar_arbol_decision(df, nombre_objetivo, tipo)
