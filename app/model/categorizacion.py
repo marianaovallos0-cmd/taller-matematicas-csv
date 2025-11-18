@@ -25,7 +25,6 @@ def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
             )
 
         else:
-            # Hoja → obtener clase objetivo
             valor = modelo.classes_[tree_.value[nodo].argmax()] \
                     if hasattr(modelo, "classes_") else tree_.value[nodo][0][0]
 
@@ -42,8 +41,19 @@ def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
 
 def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
 
+    # --- Verificar que SOLO la columna objetivo tenga faltantes ---
+    columnas_predictoras = columnas_usar
+    predictors_with_nan = df[columnas_predictoras].isna().any()
+
+    if predictors_with_nan.any():
+        raise Exception("Faltan datos para poder predecir o categorizar. "
+                        "Primero completa los valores faltantes en las columnas predictoras.")
+
     # --- Filtrar SOLO las columnas indicadas ---
     data = df[columnas_usar + [columna_objetivo]].copy()
+
+    # --- Guardar filas con NaN en objetivo ---
+    filas_faltantes = data[data[columna_objetivo].isna()].copy()
 
     # --- Label Encoding ---
     encoders = {}
@@ -56,32 +66,50 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     X = data[columnas_usar]
     y = data[columna_objetivo]
 
-    # --- Elegir modelo ---
-    # Si el objetivo fue codificado → es categórico → clasificador
+    # --- Separar filas completas para entrenar ---
+    X_train = X[~y.isna()]
+    y_train = y[~y.isna()]
+
+    # --- Modelo ---
     if columna_objetivo in encoders:
         modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
     else:
         modelo = DecisionTreeRegressor(max_depth=4, random_state=0)
 
     # --- Entrenar ---
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.3, random_state=0
-    )
-
     modelo.fit(X_train, y_train)
 
-    # Árbol raw (estético)
+    # --- Árbol raw ---
     arbol_raw = export_text(modelo, feature_names=list(X.columns))
 
-    # Reglas legibles reales
+    # --- Reglas legibles ---
     reglas = generar_reglas_legibles(
         modelo,
         list(X.columns),
         target_encoder=encoders.get(columna_objetivo)
     )
 
+    # --- Predecir valores faltantes del objetivo ---
+    valores_rellenados = None
+    if len(filas_faltantes) > 0:
+        filas_cod = filas_faltantes[columnas_usar].copy()
+
+        # codificar predictoras si es necesario
+        for col in filas_cod.columns:
+            if col in encoders:
+                filas_cod[col] = encoders[col].transform(filas_cod[col].astype(str))
+
+        pred = modelo.predict(filas_cod)
+
+        if columna_objetivo in encoders:
+            pred = encoders[columna_objetivo].inverse_transform(pred)
+
+        filas_faltantes[columna_objetivo] = pred
+        valores_rellenados = filas_faltantes
+
     return {
         "arbol": arbol_raw,
         "reglas": reglas,
-        "columnas_usadas": columnas_usar
+        "columnas_usadas": columnas_usar,
+        "valores_rellenados": valores_rellenados
     }

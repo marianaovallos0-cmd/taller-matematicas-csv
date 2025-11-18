@@ -97,7 +97,7 @@ if archivo is not None:
                 st.error(f"❌ Error durante la discretización: {e}")
 
     # ---- 6. Árbol de decisión ----
-    elif opcion == "Árbol de decisión":
+    if opcion == "Árbol de decisión":
 
         st.subheader("1. Selecciona la variable objetivo")
         columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
@@ -129,8 +129,10 @@ if archivo is not None:
                 st.subheader("Reglas legibles")
                 st.code(resultado["reglas"], language="text")
 
-                st.subheader("Score del modelo")
-                st.write(f"{resultado['score']:.4f}")
+                # --- Mostrar tabla con valores rellenados ---
+                if resultado["valores_rellenados"] is not None:
+                    st.subheader("Valores faltantes rellenados")
+                    st.dataframe(resultado["valores_rellenados"])
 
             except Exception as e:
                 st.error(f"Error al entrenar el árbol: {e}")
