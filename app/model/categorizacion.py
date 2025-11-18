@@ -12,6 +12,9 @@ def entrenar_arbol_decision(df, nombre_objetivo):
     y = df[nombre_objetivo]
     X = df.drop(columns=[nombre_objetivo])
 
+    # Guardar los valores originales del target
+    y_original = df[nombre_objetivo].copy()
+
     if y.isna().any():
         modo = y.mode()
         if len(modo) > 0:
@@ -30,8 +33,11 @@ def entrenar_arbol_decision(df, nombre_objetivo):
             label_encoders[col] = le
 
     if y.dtype == "object":
-        y = LabelEncoder().fit_transform(y.astype(str))
+        le_target = LabelEncoder()
+        y = le_target.fit_transform(y.astype(str))
         model = DecisionTreeClassifier()
+        # Guardar el LabelEncoder del target para poder decodificar después
+        model._le = le_target
     else:
         model = DecisionTreeRegressor()
 
@@ -62,18 +68,18 @@ def entrenar_arbol_decision(df, nombre_objetivo):
     except Exception:
         reglas = "No se pudieron generar reglas."
 
-    # NUEVO: REGLAS EN FORMATO TABLA
+    # NUEVO: REGLAS EN FORMATO TABLA CON VALORES ORIGINALES
     try:
-        reglas_tabla = extraer_reglas_tabla(model, X.columns, nombre_objetivo)
+        reglas_tabla = extraer_reglas_tabla(model, X.columns, nombre_objetivo, label_encoders, y_original)
     except Exception as e:
         reglas_tabla = []
         print(f"Error extrayendo reglas en tabla: {e}")
 
     return precision, model, reglas, reglas_tabla
 
-def extraer_reglas_tabla(model, features, target_name):
+def extraer_reglas_tabla(model, features, target_name, label_encoders, y_original):
     """
-    Extrae las reglas del árbol en formato de tabla
+    Extrae las reglas del árbol en formato de tabla usando valores originales
     """
     from sklearn.tree import _tree
     
@@ -88,15 +94,29 @@ def extraer_reglas_tabla(model, features, target_name):
         # Si es nodo hoja
         if tree_.feature[nodo] == _tree.TREE_UNDEFINED:
             if hasattr(model, 'classes_'):
-                clase = model.classes_[np.argmax(tree_.value[nodo])]
+                # Para clasificación - obtener la clase original
+                clase_codificada = np.argmax(tree_.value[nodo])
+                # Convertir de vuelta al valor original si es posible
+                if hasattr(model, 'classes_') and len(model.classes_) == len(np.unique(y_original)):
+                    try:
+                        clase = model.classes_[clase_codificada]
+                        # Si el target fue codificado, obtener valor original
+                        if isinstance(clase, (int, np.integer)) and hasattr(model, '_le'):
+                            clase = model._le.inverse_transform([clase])[0]
+                    except:
+                        clase = clase_codificada
+                else:
+                    clase = clase_codificada
             else:
+                # Para regresión
                 clase = tree_.value[nodo][0][0]
             
-            # Construir la regla completa
+            # Construir la regla completa con valores originales
             condiciones = " Y ".join(regla_actual)
             reglas.append({
+                "Número": len(reglas) + 1,
                 "Condiciones": condiciones if condiciones else "Todos los casos",
-                f"Categoría {target_name}": clase
+                f"Entonces {target_name}": f"= {clase}"
             })
             return
         
@@ -104,12 +124,27 @@ def extraer_reglas_tabla(model, features, target_name):
         feature = feature_names[tree_.feature[nodo]]
         threshold = tree_.threshold[nodo]
         
+        # Intentar decodificar el valor si esta característica fue codificada
+        if feature in label_encoders:
+            try:
+                # Para características categóricas, mostrar el valor original
+                valor_original = label_encoders[feature].inverse_transform([int(threshold)])[0]
+                cond_izq = f"{feature} = {valor_original}"
+                cond_der = f"{feature} ≠ {valor_original}"
+            except:
+                cond_izq = f"{feature} <= {threshold:.2f}"
+                cond_der = f"{feature} > {threshold:.2f}"
+        else:
+            # Para características numéricas
+            cond_izq = f"{feature} <= {threshold:.2f}"
+            cond_der = f"{feature} > {threshold:.2f}"
+        
         # Rama izquierda (<=)
-        nueva_regla = regla_actual + [f"{feature} <= {threshold:.2f}"]
+        nueva_regla = regla_actual + [cond_izq]
         recorrer_arbol(tree_.children_left[nodo], nueva_regla, profundidad + 1)
         
         # Rama derecha (>)
-        nueva_regla = regla_actual + [f"{feature} > {threshold:.2f}"]
+        nueva_regla = regla_actual + [cond_der]
         recorrer_arbol(tree_.children_right[nodo], nueva_regla, profundidad + 1)
     
     recorrer_arbol()

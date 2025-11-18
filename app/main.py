@@ -101,6 +101,8 @@ if archivo is not None:
         columnas = list(df.columns)
         nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
 
+        
+
         if st.button("Entrenar árbol"):
             try:
                 precision, modelo, reglas, reglas_tabla = aplicar_categorizacion(df.copy(), nombre_objetivo)
@@ -110,19 +112,21 @@ if archivo is not None:
                 # PESTAÑAS PARA DIFERENTES VISTAS
                 tab1, tab2 = st.tabs(["📊 Reglas en Tabla", "📝 Reglas en Texto"])
 
+                # En la sección del árbol de decisión:
                 with tab1:
                     st.subheader("Reglas de Clasificación")
                     if reglas_tabla:
-                        # Crear DataFrame para mostrar como tabla
-                        df_reglas = pd.DataFrame(reglas_tabla)
-                        st.dataframe(df_reglas, use_container_width=True)
-                    
-                        # Mostrar ejemplo de cómo se vería tipo tu imagen
+                        # Mostrar en formato de tabla bonita
+                        st.table(reglas_tabla)
+        
+                        # Mostrar en formato "SI... ENTONCES..." como en tu ejemplo
                         st.subheader("Formato de Presentación")
-                        for i, regla in enumerate(reglas_tabla[:5], 1):  # Mostrar primeras 5
-                            st.write(f"{i}. **SI** {regla['Condiciones']}, **ENTONCES** {regla[f'Categoría {nombre_objetivo}']}")
-                    else:
-                        st.warning("No se pudieron generar reglas en formato tabla")
+                        for regla in reglas_tabla:
+                            condiciones = regla["Condiciones"]
+                            resultado = regla[f"Entonces {nombre_objetivo}"]
+                            st.write(f"**{regla['Número']}.** SI {condiciones}, ENTONCES {resultado}")
+                        else:
+                            st.warning("No se pudieron generar reglas en formato tabla")
 
                 with tab2:
                     st.subheader("Reglas del árbol (texto)")
@@ -134,3 +138,4 @@ if archivo is not None:
                     "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
                     f"Detalles: {e}"
                 )
+
