@@ -7,7 +7,8 @@ from controller import (
 )
 
 st.set_page_config(
-    page_title="Taller Matemáticas Aplicadas - CSV", layout="centered"
+    page_title="Taller Matemáticas Aplicadas - CSV",
+    layout="centered"
 )
 
 st.title("Taller Matemáticas Aplicadas - CSV")
@@ -76,59 +77,59 @@ if archivo is not None:
             except Exception as e:
                 st.error(f"Error durante la normalización: {e}")
 
-        # ---- 5. Discretización ----
-        elif opcion == "Discretización":
-            metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
+    # ---- 5. Discretización ----
+    elif opcion == "Discretización":
+        metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
 
-            if st.button("Aplicar discretización"):
-                try:
-                    resultado = aplicar_discretizacion(df.copy(), metodo)
-                    st.subheader("Resultado")
-                    st.dataframe(resultado)
+        if st.button("Aplicar discretización"):
+            try:
+                resultado = aplicar_discretizacion(df.copy(), metodo)
+                st.subheader("Resultado")
+                st.dataframe(resultado)
 
-                    csv = resultado.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        "Descargar resultado (CSV)",
-                        data=csv,
-                        file_name="resultado_discretizacion.csv",
-                        mime="text/csv"
-                    )
-                except Exception as e:
-                    st.error(f"Error durante la discretización: {e}")
+                csv = resultado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_discretizacion.csv",
+                    mime="text/csv"
+                )
+            except Exception as e:
+                st.error(f"Error durante la discretización: {e}")
 
-        # ---- 6. Árbol de decisión ----
-        elif opcion == "Árbol de decisión":
-            columnas = list(df.columns)
+    # ---- 6. Árbol de decisión ----
+    elif opcion == "Árbol de decisión":
+        columnas = list(df.columns)
 
-            st.subheader("Tipo de modelo de Árbol")
-            tipo_arbol = st.radio(
-                "Selecciona el tipo:",
-                ["Categorización (Clasificación)", "Predicción (Regresión)"]
-            )
+        st.subheader("Tipo de modelo de Árbol")
+        tipo_arbol = st.radio(
+            "Selecciona el tipo:",
+            ["Categorización (Clasificación)", "Predicción (Regresión)"]
+        )
 
-            nombre_objetivo = st.selectbox("Selecciona la columna objetivo:", columnas)
+        nombre_objetivo = st.selectbox("Selecciona la columna objetivo:", columnas)
 
-            if st.button("Entrenar árbol"):
-                try:
-                    precision, modelo, reglas, df_resultado, _ = aplicar_arbol_decision(
-                        df.copy(),
-                        nombre_objetivo,
-                        tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
-                    )
+        if st.button("Entrenar árbol"):
+            try:
+                precision, modelo, reglas, df_resultado, _ = aplicar_arbol_decision(
+                    df.copy(),
+                    nombre_objetivo,
+                    tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
+                )
 
-                    st.subheader("Resultado")
-                    st.dataframe(df_resultado)
+                st.subheader("Resultado")
+                st.dataframe(df_resultado)
 
-                    csv = df_resultado.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        "Descargar resultado (CSV)",
-                        data=csv,
-                        file_name="resultado_arbol_decision.csv",
-                        mime="text/csv"
-                    )
+                csv = df_resultado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_arbol_decision.csv",
+                    mime="text/csv"
+                )
 
-                    st.subheader("Reglas del Árbol de Decisión")
-                    st.text_area("Reglas:", reglas, height=380)
+                st.subheader("Reglas del Árbol de Decisión")
+                st.text_area("Reglas:", reglas, height=380)
 
-                except Exception as e:
-                    st.error(f"Error durante el árbol de decisión: {e}")
+            except Exception as e:
+                st.error(f"Error durante el árbol de decisión: {e}")
