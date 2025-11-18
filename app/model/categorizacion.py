@@ -71,10 +71,8 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     y_train = y[~y.isna()]
 
     # --- Modelo ---
-    if columna_objetivo in encoders:
-        modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
-    else:
-        modelo = DecisionTreeRegressor(max_depth=4, random_state=0)
+    # Siempre tratar el objetivo como categórico
+    modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
 
     # --- Entrenar ---
     modelo.fit(X_train, y_train)
