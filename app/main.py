@@ -101,41 +101,36 @@ if archivo is not None:
         columnas = list(df.columns)
         nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
 
-        
-
-        if st.button("Entrenar árbol"):
+        if st.button("Entrenar árbol y predecir"):
             try:
-                precision, modelo, reglas, reglas_tabla = aplicar_categorizacion(df.copy(), nombre_objetivo)
+                precision, modelo, reglas, reglas_tabla, df_completo = aplicar_categorizacion(df.copy(), nombre_objetivo)
 
-                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
+                st.success(f"Precisión del modelo: {precision:.2f}")
 
-                # PESTAÑAS PARA DIFERENTES VISTAS
-                tab1, tab2 = st.tabs(["📊 Reglas en Tabla", "📝 Reglas en Texto"])
+                # Mostrar tabla completa con predicciones
+                st.subheader("📊 Tabla Completa con Predicciones")
+                st.dataframe(df_completo, use_container_width=True)
 
-                # En la sección del árbol de decisión:
+                # Pestañas para reglas
+                tab1, tab2 = st.tabs(["📋 Reglas en Formato Tabla", "📝 Reglas en Texto"])
+
                 with tab1:
                     st.subheader("Reglas de Clasificación")
                     if reglas_tabla:
-                        # Mostrar en formato de tabla bonita
-                        st.table(reglas_tabla)
-        
-                        # Mostrar en formato "SI... ENTONCES..." como en tu ejemplo
-                        st.subheader("Formato de Presentación")
+                        # Mostrar en formato de lista numerada
                         for regla in reglas_tabla:
-                            condiciones = regla["Condiciones"]
-                            resultado = regla[f"Entonces {nombre_objetivo}"]
-                            st.write(f"**{regla['Número']}.** SI {condiciones}, ENTONCES {resultado}")
-                        else:
-                            st.warning("No se pudieron generar reglas en formato tabla")
+                            st.write(f"**{regla['Número']}.** SI {regla['Condiciones']}, ENTONCES {regla[f'Entonces {nombre_objetivo}']}")
+                    
+                        # También mostrar como tabla
+                        st.subheader("Tabla de Reglas")
+                        df_reglas = pd.DataFrame(reglas_tabla)
+                        st.dataframe(df_reglas, use_container_width=True)
+                    else:
+                        st.warning("No se pudieron generar reglas en formato tabla")
 
                 with tab2:
                     st.subheader("Reglas del árbol (texto)")
                     st.text_area("Reglas:", reglas, height=300)
 
             except Exception as e:
-                st.error(
-                    "❌ No se pudo entrenar el árbol de decisión. "
-                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
-                    f"Detalles: {e}"
-                )
-
+                st.error(f"❌ Error: {e}")

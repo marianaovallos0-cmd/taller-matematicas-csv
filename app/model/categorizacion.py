@@ -5,81 +5,110 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
 def entrenar_arbol_decision(df, nombre_objetivo):
-
+    """
+    Entrena un árbol de decisión y predice valores faltantes en la columna objetivo
+    """
     if nombre_objetivo not in df.columns:
         raise ValueError(f"La columna objetivo '{nombre_objetivo}' no existe en el dataset.")
 
-    y = df[nombre_objetivo]
-    X = df.drop(columns=[nombre_objetivo])
+    # Separar datos para entrenamiento y predicción
+    df_entrenamiento = df[df[nombre_objetivo].notna()]  # Filas con target conocido
+    df_prediccion = df[df[nombre_objetivo].isna()]      # Filas con target faltante
 
-    # Guardar los valores originales del target
-    y_original = df[nombre_objetivo].copy()
+    # Si no hay datos para entrenar, no podemos predecir
+    if len(df_entrenamiento) == 0:
+        raise ValueError(f"No hay valores conocidos en '{nombre_objetivo}' para entrenar el modelo.")
 
-    if y.isna().any():
-        modo = y.mode()
-        if len(modo) > 0:
-            y = y.fillna(modo.iloc[0])
-        else:
-            # Si no hay moda se rellena con 0
-            y = y.fillna(0)
+    # Preparar datos de entrenamiento
+    y_entrenamiento = df_entrenamiento[nombre_objetivo]
+    X_entrenamiento = df_entrenamiento.drop(columns=[nombre_objetivo])
 
-    X = X.fillna(0)
+    # Si hay datos para predecir, prepararlos
+    if len(df_prediccion) > 0:
+        X_prediccion = df_prediccion.drop(columns=[nombre_objetivo])
+    else:
+        X_prediccion = pd.DataFrame()
 
+    # Limpieza de datos
+    X_entrenamiento = X_entrenamiento.fillna(0)
+    if len(X_prediccion) > 0:
+        X_prediccion = X_prediccion.fillna(0)
+
+    # Codificar variables categóricas
     label_encoders = {}
-    for col in X.columns:
-        if X[col].dtype == "object":
+    for col in X_entrenamiento.columns:
+        if X_entrenamiento[col].dtype == "object":
             le = LabelEncoder()
-            X[col] = le.fit_transform(X[col].astype(str))
+            # Ajustar con datos de entrenamiento y transformar ambos conjuntos
+            X_entrenamiento[col] = le.fit_transform(X_entrenamiento[col].astype(str))
+            if len(X_prediccion) > 0:
+                X_prediccion[col] = le.transform(X_prediccion[col].astype(str))
             label_encoders[col] = le
 
-    if y.dtype == "object":
+    # Codificar target y crear modelo
+    if y_entrenamiento.dtype == "object":
         le_target = LabelEncoder()
-        y = le_target.fit_transform(y.astype(str))
-        model = DecisionTreeClassifier()
-        # Guardar el LabelEncoder del target para poder decodificar después
-        model._le = le_target
+        y_encoded = le_target.fit_transform(y_entrenamiento.astype(str))
+        model = DecisionTreeClassifier(random_state=42)
+        es_clasificacion = True
     else:
-        model = DecisionTreeRegressor()
+        y_encoded = y_entrenamiento
+        model = DecisionTreeRegressor(random_state=42)
+        es_clasificacion = False
 
-
-    if X.shape[1] == 0:
+    # Verificar que hay datos suficientes
+    if X_entrenamiento.shape[1] == 0:
         raise ValueError("No hay columnas suficientes para entrenar el árbol de decisión.")
 
+    # Entrenar modelo
     try:
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
+            X_entrenamiento, y_encoded, test_size=0.2, random_state=42
         )
-    except ValueError as e:
-        raise ValueError("No se puede dividir el dataset. Verifica NaN o columnas vacías.\n" + str(e))
-
-    try:
         model.fit(X_train, y_train)
     except Exception as e:
-        raise ValueError("Error entrenando el árbol de decisión:\n" + str(e))
+        # Si falla la división, entrenar con todos los datos
+        model.fit(X_entrenamiento, y_encoded)
+        X_test, y_test = X_entrenamiento, y_encoded
 
+    # Calcular precisión
     try:
         precision = model.score(X_test, y_test)
     except Exception:
-        precision = 0
+        precision = model.score(X_entrenamiento, y_encoded) if hasattr(model, 'score') else 0
 
-
+    # Generar reglas en texto
     try:
-        reglas = export_text(model, feature_names=list(X.columns))
+        reglas = export_text(model, feature_names=list(X_entrenamiento.columns))
     except Exception:
         reglas = "No se pudieron generar reglas."
 
-    # NUEVO: REGLAS EN FORMATO TABLA CON VALORES ORIGINALES
+    # Generar reglas en formato tabla
     try:
-        reglas_tabla = extraer_reglas_tabla(model, X.columns, nombre_objetivo, label_encoders, y_original)
+        reglas_tabla = extraer_reglas_tabla(model, X_entrenamiento.columns, nombre_objetivo, label_encoders, le_target if es_clasificacion else None)
     except Exception as e:
         reglas_tabla = []
         print(f"Error extrayendo reglas en tabla: {e}")
 
-    return precision, model, reglas, reglas_tabla
+    # Predecir valores faltantes
+    df_completo = df.copy()
+    if len(df_prediccion) > 0:
+        try:
+            predicciones = model.predict(X_prediccion)
+            if es_clasificacion:
+                predicciones = le_target.inverse_transform(predicciones)
+            
+            # Actualizar el DataFrame original con las predicciones
+            indices_prediccion = df_prediccion.index
+            df_completo.loc[indices_prediccion, nombre_objetivo] = predicciones
+        except Exception as e:
+            print(f"Error en predicción: {e}")
 
-def extraer_reglas_tabla(model, features, target_name, label_encoders, y_original):
+    return precision, model, reglas, reglas_tabla, df_completo
+
+def extraer_reglas_tabla(model, features, target_name, label_encoders, le_target=None):
     """
-    Extrae las reglas del árbol en formato de tabla usando valores originales
+    Extrae las reglas del árbol en formato de tabla
     """
     from sklearn.tree import _tree
     
@@ -93,16 +122,13 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, y_origina
             
         # Si es nodo hoja
         if tree_.feature[nodo] == _tree.TREE_UNDEFINED:
+            # Obtener la clase predicha
             if hasattr(model, 'classes_'):
-                # Para clasificación - obtener la clase original
                 clase_codificada = np.argmax(tree_.value[nodo])
-                # Convertir de vuelta al valor original si es posible
-                if hasattr(model, 'classes_') and len(model.classes_) == len(np.unique(y_original)):
+                # Convertir a valor original si es clasificación
+                if le_target is not None:
                     try:
-                        clase = model.classes_[clase_codificada]
-                        # Si el target fue codificado, obtener valor original
-                        if isinstance(clase, (int, np.integer)) and hasattr(model, '_le'):
-                            clase = model._le.inverse_transform([clase])[0]
+                        clase = le_target.inverse_transform([clase_codificada])[0]
                     except:
                         clase = clase_codificada
                 else:
@@ -111,12 +137,12 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, y_origina
                 # Para regresión
                 clase = tree_.value[nodo][0][0]
             
-            # Construir la regla completa con valores originales
+            # Construir la regla
             condiciones = " Y ".join(regla_actual)
             reglas.append({
                 "Número": len(reglas) + 1,
                 "Condiciones": condiciones if condiciones else "Todos los casos",
-                f"Entonces {target_name}": f"= {clase}"
+                f"Entonces {target_name}": clase
             })
             return
         
@@ -124,10 +150,9 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, y_origina
         feature = feature_names[tree_.feature[nodo]]
         threshold = tree_.threshold[nodo]
         
-        # Intentar decodificar el valor si esta característica fue codificada
+        # Para características categóricas codificadas
         if feature in label_encoders:
             try:
-                # Para características categóricas, mostrar el valor original
                 valor_original = label_encoders[feature].inverse_transform([int(threshold)])[0]
                 cond_izq = f"{feature} = {valor_original}"
                 cond_der = f"{feature} ≠ {valor_original}"
@@ -139,11 +164,10 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, y_origina
             cond_izq = f"{feature} <= {threshold:.2f}"
             cond_der = f"{feature} > {threshold:.2f}"
         
-        # Rama izquierda (<=)
+        # Recorrer ramas
         nueva_regla = regla_actual + [cond_izq]
         recorrer_arbol(tree_.children_left[nodo], nueva_regla, profundidad + 1)
         
-        # Rama derecha (>)
         nueva_regla = regla_actual + [cond_der]
         recorrer_arbol(tree_.children_right[nodo], nueva_regla, profundidad + 1)
     
