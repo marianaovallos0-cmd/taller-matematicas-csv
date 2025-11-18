@@ -3,11 +3,12 @@ import pandas as pd
 from helpers.cargarArchivo import cargar_csv
 from controller import (
     aplicar_imputacion, aplicar_normalizacion,
-    aplicar_discretizacion, aplicar_categorizacion
+    aplicar_discretizacion, aplicar_arbol_decision
 )
 
 st.set_page_config(
-    page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
+    page_title="Taller Matemáticas Aplicadas - CSV", layout="centered"
+)
 
 st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
@@ -23,7 +24,7 @@ if archivo is not None:
         st.error(error)
         st.stop()
 
-    # Si todo bien → mostrar datos
+    # Mostrar datos cargados
     st.subheader("Datos originales")
     st.dataframe(df)
 
@@ -32,13 +33,12 @@ if archivo is not None:
     opcion = st.selectbox(
         "¿Qué quieres hacer?",
         ["Relleno de valores faltantes", "Normalización",
-            "Discretización", "Árbol de decisión"]
+         "Discretización", "Árbol de decisión"]
     )
 
     # ---- 3. Relleno de valores faltantes ----
     if opcion == "Relleno de valores faltantes":
-        metodo = st.selectbox(
-            "Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
+        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
 
         if st.button("Aplicar relleno"):
             try:
@@ -53,7 +53,6 @@ if archivo is not None:
                     file_name="resultado_imputacion.csv",
                     mime="text/csv"
                 )
-
             except Exception as e:
                 st.error(f"❌ Error durante la imputación: {e}")
 
@@ -74,7 +73,6 @@ if archivo is not None:
                     file_name="resultado_normalizacion.csv",
                     mime="text/csv"
                 )
-
             except Exception as e:
                 st.error(f"❌ Error durante la normalización: {e}")
 
@@ -95,7 +93,6 @@ if archivo is not None:
                     file_name="resultado_discretizacion.csv",
                     mime="text/csv"
                 )
-
             except Exception as e:
                 st.error(f"❌ Error durante la discretización: {e}")
 
@@ -105,13 +102,11 @@ if archivo is not None:
 
         st.subheader("Tipo de modelo de Árbol")
         tipo_arbol = st.radio(
-            "Selecciona el tipo de árbol:",
+            "Selecciona el tipo:",
             ["Categorización (Clasificación)", "Predicción (Regresión)"]
         )
 
-        nombre_objetivo = st.selectbox(
-            "Selecciona la columna objetivo (target):", columnas
-        )
+        nombre_objetivo = st.selectbox("Selecciona la columna objetivo:", columnas)
 
         if st.button("Entrenar árbol"):
             try:
