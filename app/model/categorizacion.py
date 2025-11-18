@@ -1,6 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, export_text
+from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.model_selection import train_test_split
 
 
@@ -26,7 +26,7 @@ def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
 
         else:
             valor = modelo.classes_[tree_.value[nodo].argmax()] \
-                    if hasattr(modelo, "classes_") else tree_.value[nodo][0][0]
+                if hasattr(modelo, "classes_") else tree_.value[nodo][0][0]
 
             if target_encoder is not None:
                 valor = target_encoder.inverse_transform([int(valor)])[0]
@@ -46,8 +46,10 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     predictors_with_nan = df[columnas_predictoras].isna().any()
 
     if predictors_with_nan.any():
-        raise Exception("Faltan datos para poder predecir o categorizar. "
-                        "Primero completa los valores faltantes en las columnas predictoras.")
+        raise Exception(
+            "Faltan datos para poder predecir o categorizar. "
+            "Primero completa los valores faltantes en las columnas predictoras."
+        )
 
     # --- Filtrar SOLO las columnas indicadas ---
     data = df[columnas_usar + [columna_objetivo]].copy()
@@ -60,7 +62,12 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     for col in data.columns:
         if data[col].dtype == "object":
             enc = LabelEncoder()
-            data[col] = enc.fit_transform(data[col].astype(str))
+            no_nulos = data[col].dropna().astype(str)
+            enc.fit(no_nulos)
+
+            data[col] = data[col].apply(
+                lambda v: enc.transform([str(v)])[0] if pd.notna(v) else None
+            )
             encoders[col] = enc
 
     X = data[columnas_usar]
@@ -71,7 +78,6 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     y_train = y[~y.isna()]
 
     # --- Modelo ---
-    # Siempre tratar el objetivo como categórico
     modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
 
     # --- Entrenar ---
