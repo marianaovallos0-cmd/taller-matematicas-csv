@@ -30,5 +30,4 @@ def aplicar_discretizacion(df, metodo):
     return df
 
 def aplicar_categorizacion(df, nombre_objetivo):
-    # Ahora devuelve 4 valores: precisión, modelo, reglas, df_completo
     return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)
