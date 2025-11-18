@@ -20,12 +20,10 @@ archivo = st.file_uploader("Sube un archivo CSV", type=["csv"])
 if archivo is not None:
     df, error = cargar_csv(archivo)
 
-    # Si hubo error → mostrar y detener
     if error:
         st.error(error)
         st.stop()
 
-    # Mostrar datos cargados
     st.subheader("Datos originales")
     st.dataframe(df)
 
@@ -37,7 +35,7 @@ if archivo is not None:
          "Discretización", "Árbol de decisión"]
     )
 
-    # ---- 3. Relleno de valores faltantes ----
+    # ---- 3. Relleno ----
     if opcion == "Relleno de valores faltantes":
         metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
 
@@ -46,14 +44,6 @@ if archivo is not None:
                 resultado = aplicar_imputacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_imputacion.csv",
-                    mime="text/csv"
-                )
             except Exception as e:
                 st.error(f"Error durante la imputación: {e}")
 
@@ -66,14 +56,6 @@ if archivo is not None:
                 resultado = aplicar_normalizacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_normalizacion.csv",
-                    mime="text/csv"
-                )
             except Exception as e:
                 st.error(f"Error durante la normalización: {e}")
 
@@ -86,48 +68,44 @@ if archivo is not None:
                 resultado = aplicar_discretizacion(df.copy(), metodo)
                 st.subheader("Resultado")
                 st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_discretizacion.csv",
-                    mime="text/csv"
-                )
             except Exception as e:
                 st.error(f"Error durante la discretización: {e}")
 
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
-        columna_objetivo = st.selectbox("Selecciona la variable objetivo:", df.columns)
+
+        st.subheader("1. Selecciona la variable objetivo")
+        columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
+
+        st.subheader("2. Selecciona las columnas que SÍ quieres usar en el modelo")
+        columnas_disponibles = [c for c in df.columns if c != columna_objetivo]
+        columnas_seleccionadas = st.multiselect(
+            "Columnas predictoras (X):",
+            columnas_disponibles,
+            default=columnas_disponibles
+        )
 
         if st.button("Entrenar árbol"):
             try:
-                resultado = aplicar_arbol_decision(df.copy(), columna_objetivo)
+                resultado = aplicar_arbol_decision(
+                    df.copy(),
+                    columna_objetivo,
+                    columnas_seleccionadas
+                )
 
                 st.success("Árbol entrenado exitosamente")
 
-                st.subheader("Columnas usadas en el modelo")
+                st.subheader("Columnas usadas")
                 st.write(resultado["columnas_usadas"])
 
-                if resultado["columnas_eliminadas"]:
-                    st.subheader("Columnas eliminadas automáticamente (posibles IDs)")
-                    st.write(resultado["columnas_eliminadas"])
-
-                st.subheader("Árbol de decisión simplificado")
+                st.subheader("Árbol de decisión (estructura interna)")
                 st.code(resultado["arbol"], language="text")
+
+                st.subheader("Reglas legibles")
+                st.code(resultado["reglas"], language="text")
 
                 st.subheader("Score del modelo")
                 st.write(f"{resultado['score']:.4f}")
-
-                # Botón opcional para descargar árbol como TXT
-                txt_data = resultado["arbol"].encode("utf-8")
-                st.download_button(
-                    "Descargar árbol (TXT)",
-                    data=txt_data,
-                    file_name="arbol_decision.txt",
-                    mime="text/plain"
-                )
 
             except Exception as e:
                 st.error(f"Error al entrenar el árbol: {e}")
