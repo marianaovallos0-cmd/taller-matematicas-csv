@@ -110,19 +110,33 @@ if archivo is not None:
 
         if st.button("Entrenar árbol"):
             try:
-                precision, modelo, reglas, df_resultado = aplicar_arbol_decision(
+                precision, modelo, reglas, df_resultado, info = aplicar_arbol_decision(
                     df.copy(),
                     nombre_objetivo,
                     tipo="clasificacion" if "Categorización" in tipo_arbol else "regresion"
                 )
 
-                st.success(f"✅ Precisión del modelo: {precision:.2f}")
+                st.subheader("🔍 Preprocesamiento: Imputación y Codificación")
 
-                st.subheader("📊 Tabla resultante")
-                st.dataframe(df_resultado, use_container_width=True)
+                st.write("**📘 Numéricos imputados:**")
+                for col in info["numericos"]:
+                    st.write(f"- {col}")
 
-                st.subheader("📝 Reglas del Árbol de Decisión")
+                st.write("**📘 Categóricos imputados:**")
+                for col in info["categoricos"]:
+                    st.write(f"- {col}")
+
+                st.write("**📘 Columnas codificadas:**")
+                for col in info["codificados"]:
+                    st.write(f"- {col}")
+
+                st.subheader("📊 Tabla procesada")
+                st.dataframe(df_resultado)
+
+                st.subheader("🌳 Reglas del Árbol de Decisión")
                 st.text_area("Reglas:", reglas, height=380)
+
+
 
             except Exception as e:
                 st.error(f"❌ Error: {e}")
