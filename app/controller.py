@@ -50,5 +50,5 @@ def discretizar_chimerge(df, num_bins=4):
         return df
 
 def aplicar_categorizacion(df, nombre_objetivo):
-    # ahora devuelve precisión, modelo, reglas
+    # Ahora devuelve 4 valores: precisión, modelo, reglas_texto, reglas_tabla
     return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)

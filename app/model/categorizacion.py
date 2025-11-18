@@ -62,4 +62,55 @@ def entrenar_arbol_decision(df, nombre_objetivo):
     except Exception:
         reglas = "No se pudieron generar reglas."
 
-    return precision, model, reglas
+    # NUEVO: REGLAS EN FORMATO TABLA
+    try:
+        reglas_tabla = extraer_reglas_tabla(model, X.columns, nombre_objetivo)
+    except Exception as e:
+        reglas_tabla = []
+        print(f"Error extrayendo reglas en tabla: {e}")
+
+    return precision, model, reglas, reglas_tabla
+
+def extraer_reglas_tabla(model, features, target_name):
+    """
+    Extrae las reglas del árbol en formato de tabla
+    """
+    from sklearn.tree import _tree
+    
+    tree_ = model.tree_
+    feature_names = features
+    reglas = []
+    
+    def recorrer_arbol(nodo=0, regla_actual=None, profundidad=0):
+        if regla_actual is None:
+            regla_actual = []
+            
+        # Si es nodo hoja
+        if tree_.feature[nodo] == _tree.TREE_UNDEFINED:
+            if hasattr(model, 'classes_'):
+                clase = model.classes_[np.argmax(tree_.value[nodo])]
+            else:
+                clase = tree_.value[nodo][0][0]
+            
+            # Construir la regla completa
+            condiciones = " Y ".join(regla_actual)
+            reglas.append({
+                "Condiciones": condiciones if condiciones else "Todos los casos",
+                f"Categoría {target_name}": clase
+            })
+            return
+        
+        # Obtener características del nodo
+        feature = feature_names[tree_.feature[nodo]]
+        threshold = tree_.threshold[nodo]
+        
+        # Rama izquierda (<=)
+        nueva_regla = regla_actual + [f"{feature} <= {threshold:.2f}"]
+        recorrer_arbol(tree_.children_left[nodo], nueva_regla, profundidad + 1)
+        
+        # Rama derecha (>)
+        nueva_regla = regla_actual + [f"{feature} > {threshold:.2f}"]
+        recorrer_arbol(tree_.children_right[nodo], nueva_regla, profundidad + 1)
+    
+    recorrer_arbol()
+    return reglas
