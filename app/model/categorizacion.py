@@ -11,9 +11,33 @@ def entrenar_arbol_decision(df, nombre_objetivo):
     if nombre_objetivo not in df.columns:
         raise ValueError(f"La columna objetivo '{nombre_objetivo}' no existe en el dataset.")
 
+    # Hacer una copia para no modificar el original
+    df_work = df.copy()
+    
+    # IDENTIFICAR Y EXCLUIR COLUMNAS NO APROPIADAS para el modelo
+    columnas_a_excluir = []
+    
+    for columna in df_work.columns:
+        # Excluir columnas con valores únicos (como IDs) o casi únicos
+        if columna == nombre_objetivo:
+            continue  # No excluir la columna objetivo
+        
+        # Si la columna tiene más del 90% de valores únicos, probablemente es un ID
+        valores_unicos = df_work[columna].nunique()
+        total_valores = len(df_work[columna])
+        
+        if valores_unicos / total_valores > 0.9:  # Más del 90% únicos
+            columnas_a_excluir.append(columna)
+            print(f"Excluyendo columna '{columna}' (demasiados valores únicos: {valores_unicos}/{total_valores})")
+    
+    # Excluir las columnas identificadas (excepto la objetivo)
+    if columnas_a_excluir:
+        df_work = df_work.drop(columns=columnas_a_excluir)
+        st.info(f"Columnas excluidas del modelo: {columnas_a_excluir}")
+
     # Separar datos para entrenamiento y predicción
-    df_entrenamiento = df[df[nombre_objetivo].notna()]  # Filas con target conocido
-    df_prediccion = df[df[nombre_objetivo].isna()]      # Filas con target faltante
+    df_entrenamiento = df_work[df_work[nombre_objetivo].notna()]  # Filas con target conocido
+    df_prediccion = df_work[df_work[nombre_objetivo].isna()]      # Filas con target faltante
 
     # Si no hay datos para entrenar, no podemos predecir
     if len(df_entrenamiento) == 0:
@@ -29,31 +53,58 @@ def entrenar_arbol_decision(df, nombre_objetivo):
     else:
         X_prediccion = pd.DataFrame()
 
-    # Limpieza de datos
-    X_entrenamiento = X_entrenamiento.fillna(0)
-    if len(X_prediccion) > 0:
-        X_prediccion = X_prediccion.fillna(0)
-
-    # Codificar variables categóricas
-    label_encoders = {}
+    # Limpieza de datos - llenar NaN con valores apropiados
     for col in X_entrenamiento.columns:
-        if X_entrenamiento[col].dtype == "object":
+        if X_entrenamiento[col].dtype == 'object':
+            X_entrenamiento[col] = X_entrenamiento[col].fillna('Desconocido')
+        else:
+            X_entrenamiento[col] = X_entrenamiento[col].fillna(0)
+    
+    if len(X_prediccion) > 0:
+        for col in X_prediccion.columns:
+            if X_prediccion[col].dtype == 'object':
+                X_prediccion[col] = X_prediccion[col].fillna('Desconocido')
+            else:
+                X_prediccion[col] = X_prediccion[col].fillna(0)
+
+    # Codificar variables categóricas SOLO para columnas con pocos valores únicos
+    label_encoders = {}
+    columnas_a_codificar = []
+    
+    for col in X_entrenamiento.columns:
+        # Solo codificar columnas con menos del 50% de valores únicos
+        if (X_entrenamiento[col].dtype == "object" and 
+            X_entrenamiento[col].nunique() / len(X_entrenamiento[col]) < 0.5):
+            columnas_a_codificar.append(col)
+    
+    for col in columnas_a_codificar:
+        try:
             le = LabelEncoder()
-            # Ajustar con datos de entrenamiento y transformar ambos conjuntos
             X_entrenamiento[col] = le.fit_transform(X_entrenamiento[col].astype(str))
             if len(X_prediccion) > 0:
-                X_prediccion[col] = le.transform(X_prediccion[col].astype(str))
+                # Para datos de predicción, usar transform y manejar valores nuevos
+                mascara_valores_conocidos = X_prediccion[col].isin(le.classes_)
+                X_prediccion.loc[mascara_valores_conocidos, col] = le.transform(
+                    X_prediccion.loc[mascara_valores_conocidos, col].astype(str)
+                )
+                # Para valores no vistos, asignar un valor por defecto (moda)
+                if not mascara_valores_conocidos.all():
+                    moda = X_entrenamiento[col].mode()
+                    valor_por_defecto = moda.iloc[0] if len(moda) > 0 else 0
+                    X_prediccion.loc[~mascara_valores_conocidos, col] = valor_por_defecto
             label_encoders[col] = le
+        except Exception as e:
+            print(f"Error codificando columna {col}: {e}")
 
     # Codificar target y crear modelo
     if y_entrenamiento.dtype == "object":
         le_target = LabelEncoder()
         y_encoded = le_target.fit_transform(y_entrenamiento.astype(str))
-        model = DecisionTreeClassifier(random_state=42)
+        model = DecisionTreeClassifier(random_state=42, max_depth=5)  # Limitar profundidad
         es_clasificacion = True
     else:
         y_encoded = y_entrenamiento
-        model = DecisionTreeRegressor(random_state=42)
+        model = DecisionTreeRegressor(random_state=42, max_depth=5)
         es_clasificacion = False
 
     # Verificar que hay datos suficientes
@@ -66,16 +117,12 @@ def entrenar_arbol_decision(df, nombre_objetivo):
             X_entrenamiento, y_encoded, test_size=0.2, random_state=42
         )
         model.fit(X_train, y_train)
+        precision = model.score(X_test, y_test)
     except Exception as e:
         # Si falla la división, entrenar con todos los datos
         model.fit(X_entrenamiento, y_encoded)
-        X_test, y_test = X_entrenamiento, y_encoded
-
-    # Calcular precisión
-    try:
-        precision = model.score(X_test, y_test)
-    except Exception:
         precision = model.score(X_entrenamiento, y_encoded) if hasattr(model, 'score') else 0
+        print(f"Usando todos los datos para entrenamiento: {e}")
 
     # Generar reglas en texto
     try:
@@ -101,8 +148,11 @@ def entrenar_arbol_decision(df, nombre_objetivo):
             # Actualizar el DataFrame original con las predicciones
             indices_prediccion = df_prediccion.index
             df_completo.loc[indices_prediccion, nombre_objetivo] = predicciones
+            
+            st.success(f"✅ Se predijeron {len(predicciones)} valores faltantes en '{nombre_objetivo}'")
+            
         except Exception as e:
-            print(f"Error en predicción: {e}")
+            st.warning(f"⚠️ No se pudieron predecir algunos valores: {e}")
 
     return precision, model, reglas, reglas_tabla, df_completo
 
@@ -139,13 +189,18 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, le_target
             
             # Construir la regla
             condiciones = " Y ".join(regla_actual)
-            reglas.append({
-                "Número": len(reglas) + 1,
-                "Condiciones": condiciones if condiciones else "Todos los casos",
-                f"Entonces {target_name}": clase
-            })
+            if condiciones:  # Solo agregar reglas con condiciones
+                reglas.append({
+                    "Número": len(reglas) + 1,
+                    "Condiciones": condiciones,
+                    f"Entonces {target_name}": f"= {clase}"
+                })
             return
         
+        # Si es muy profundo, detener la recursión
+        if profundidad > 10:
+            return
+            
         # Obtener características del nodo
         feature = feature_names[tree_.feature[nodo]]
         threshold = tree_.threshold[nodo]
@@ -172,4 +227,4 @@ def extraer_reglas_tabla(model, features, target_name, label_encoders, le_target
         recorrer_arbol(tree_.children_right[nodo], nueva_regla, profundidad + 1)
     
     recorrer_arbol()
-    return reglas
+    return reglas[:20]  # Limitar a 20 reglas para no saturar
