@@ -97,40 +97,40 @@ if archivo is not None:
                 st.error(f"❌ Error durante la discretización: {e}")
 
     # ---- 6. Árbol de decisión ----
-elif opcion == "Árbol de decisión":
-    columnas = list(df.columns)
-    nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+    elif opcion == "Árbol de decisión":
+        columnas = list(df.columns)
+        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
 
-    if st.button("Entrenar árbol"):
-        try:
-            precision, modelo, reglas, reglas_tabla = aplicar_categorizacion(df.copy(), nombre_objetivo)
+        if st.button("Entrenar árbol"):
+            try:
+                precision, modelo, reglas, reglas_tabla = aplicar_categorizacion(df.copy(), nombre_objetivo)
 
-            st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
+                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
 
-            # PESTAÑAS PARA DIFERENTES VISTAS
-            tab1, tab2 = st.tabs(["📊 Reglas en Tabla", "📝 Reglas en Texto"])
+                # PESTAÑAS PARA DIFERENTES VISTAS
+                tab1, tab2 = st.tabs(["📊 Reglas en Tabla", "📝 Reglas en Texto"])
 
-            with tab1:
-                st.subheader("Reglas de Clasificación")
-                if reglas_tabla:
-                    # Crear DataFrame para mostrar como tabla
-                    df_reglas = pd.DataFrame(reglas_tabla)
-                    st.dataframe(df_reglas, use_container_width=True)
+                with tab1:
+                    st.subheader("Reglas de Clasificación")
+                    if reglas_tabla:
+                        # Crear DataFrame para mostrar como tabla
+                        df_reglas = pd.DataFrame(reglas_tabla)
+                        st.dataframe(df_reglas, use_container_width=True)
                     
-                    # Mostrar ejemplo de cómo se vería tipo tu imagen
-                    st.subheader("Formato de Presentación")
-                    for i, regla in enumerate(reglas_tabla[:5], 1):  # Mostrar primeras 5
-                        st.write(f"{i}. **SI** {regla['Condiciones']}, **ENTONCES** {regla[f'Categoría {nombre_objetivo}']}")
-                else:
-                    st.warning("No se pudieron generar reglas en formato tabla")
+                        # Mostrar ejemplo de cómo se vería tipo tu imagen
+                        st.subheader("Formato de Presentación")
+                        for i, regla in enumerate(reglas_tabla[:5], 1):  # Mostrar primeras 5
+                            st.write(f"{i}. **SI** {regla['Condiciones']}, **ENTONCES** {regla[f'Categoría {nombre_objetivo}']}")
+                    else:
+                        st.warning("No se pudieron generar reglas en formato tabla")
 
-            with tab2:
-                st.subheader("Reglas del árbol (texto)")
-                st.text_area("Reglas:", reglas, height=300)
+                with tab2:
+                    st.subheader("Reglas del árbol (texto)")
+                    st.text_area("Reglas:", reglas, height=300)
 
-        except Exception as e:
-            st.error(
-                "❌ No se pudo entrenar el árbol de decisión. "
-                "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
-                f"Detalles: {e}"
-            )
+            except Exception as e:
+                st.error(
+                    "❌ No se pudo entrenar el árbol de decisión. "
+                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
+                    f"Detalles: {e}"
+                )
