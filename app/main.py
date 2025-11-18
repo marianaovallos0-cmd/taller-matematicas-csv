@@ -76,25 +76,25 @@ if archivo is not None:
             except Exception as e:
                 st.error(f"Error durante la normalización: {e}")
 
-    # ---- 5. Discretización ----
-    elif opcion == "Discretización":
-        metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
+        # ---- 5. Discretización ----
+        elif opcion == "Discretización":
+            metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
 
-        if st.button("Aplicar discretización"):
-            try:
-                resultado = aplicar_discretizacion(df.copy(), metodo)
-                st.subheader("Resultado")
-                st.dataframe(resultado)
+            if st.button("Aplicar discretización"):
+                try:
+                    resultado = aplicar_discretizacion(df.copy(), metodo)
+                    st.subheader("Resultado")
+                    st.dataframe(resultado)
 
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_discretizacion.csv",
-                    mime="text/csv"
-                )
-            except Exception as e:
-                st.error(f"Error durante la discretización: {e}")
+                    csv = resultado.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        "Descargar resultado (CSV)",
+                        data=csv,
+                        file_name="resultado_discretizacion.csv",
+                        mime="text/csv"
+                    )
+                except Exception as e:
+                    st.error(f"Error durante la discretización: {e}")
 
         # ---- 6. Árbol de decisión ----
         elif opcion == "Árbol de decisión":
@@ -106,7 +106,7 @@ if archivo is not None:
                 ["Categorización (Clasificación)", "Predicción (Regresión)"]
             )
 
-            nombre_objetivo = st.selectbox("Selecciona la columna que desea categorizar:", columnas)
+            nombre_objetivo = st.selectbox("Selecciona la columna objetivo:", columnas)
 
             if st.button("Entrenar árbol"):
                 try:
