@@ -18,7 +18,13 @@ def min_max(df, min_nuevo=0, max_nuevo=1):
 
     return df
 
-def logaritmica(df):
-    numeric = df.select_dtypes(include=['number'])
-    df[numeric.columns] = numeric.apply(lambda x: np.log1p(x))
+def log_norm(df):
+    """
+    Normalización logarítmica: log(x + 1) para evitar log(0).
+    Solo aplica a columnas numéricas.
+    """
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) == 0:
+        return df
+    df[numeric_cols] = df[numeric_cols].apply(lambda col: np.log(col + 1))
     return df

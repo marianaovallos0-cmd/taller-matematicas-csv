@@ -15,21 +15,17 @@ def imputar_knn(df, vecinos=3):
     df[numeric_cols] = resultado
     return df
 
-def imputar_kmodes(df, k=3):
-    """
-    Imputación simple para variables categóricas:
-    - si hay columnas tipo objeto, rellena con la moda (forma simple),
-      porque usar KModes directamente requiere convertir todo.
-    """
+def imputar_k_modes(df, k=3):
     object_cols = df.select_dtypes(include=['object', 'category']).columns
     if len(object_cols) == 0:
         return df
-    # estrategia simple: rellenar por la moda de cada columna
+
     for c in object_cols:
         moda = df[c].mode()
         if len(moda) > 0:
             df[c] = df[c].fillna(moda.iloc[0])
     return df
+
 
 def imputar_media(df):
     return df.fillna(df.mean(numeric_only=True))
