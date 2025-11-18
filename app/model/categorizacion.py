@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier, export_text
 from sklearn.model_selection import train_test_split
+import numpy as np
 
 
 def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
@@ -66,8 +67,9 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
             enc.fit(no_nulos)
 
             data[col] = data[col].apply(
-                lambda v: enc.transform([str(v)])[0] if pd.notna(v) else None
+                lambda v: enc.transform([str(v)])[0] if pd.notna(v) else np.nan
             )
+
             encoders[col] = enc
 
     X = data[columnas_usar]
@@ -98,7 +100,7 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     if len(filas_faltantes) > 0:
         filas_cod = filas_faltantes[columnas_usar].copy()
 
-        # codificar predictoras si es necesario
+        # Codificar predictoras si es necesario
         for col in filas_cod.columns:
             if col in encoders:
                 filas_cod[col] = encoders[col].transform(filas_cod[col].astype(str))
