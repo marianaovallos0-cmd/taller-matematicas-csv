@@ -13,6 +13,7 @@ def aplicar_imputacion(df, metodo):
         return valoresFaltantes.imputar_moda(df)
     return df
 
+
 def aplicar_normalizacion(df, metodo):
     if metodo == "Z-Score":
         return normalizacion.z_score(df)
@@ -22,6 +23,7 @@ def aplicar_normalizacion(df, metodo):
         return normalizacion.log_norm(df)
     return df
 
+
 def aplicar_discretizacion(df, metodo):
     if metodo == "Equal Width":
         return discretizacion.discretizar_ancho_igual(df)
@@ -29,5 +31,7 @@ def aplicar_discretizacion(df, metodo):
         return discretizacion.discretizar_frecuencia_igual(df)
     return df
 
-def aplicar_arbol_decision(df, columna_objetivo, columnas_usar):
-    return categorizacion.entrenar_arbol_decision(df, columna_objetivo, columnas_usar)
+
+def aplicar_arbol_decision(df, columna_objetivo):
+    return categorizacion.entrenar_arbol_decision(df, columna_objetivo)
+
