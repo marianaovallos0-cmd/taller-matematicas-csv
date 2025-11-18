@@ -3,13 +3,10 @@ import pandas as pd
 from helpers.cargarArchivo import cargar_csv
 from controller import (
     aplicar_imputacion, aplicar_normalizacion,
-    aplicar_discretizacion, aplicar_arbol_decision
+    aplicar_discretizacion, aplicar_categorizacion
 )
 
-st.set_page_config(
-    page_title="Taller Matemáticas Aplicadas - CSV",
-    layout="centered"
-)
+st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
 
 st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
@@ -25,7 +22,7 @@ if archivo is not None:
         st.error(error)
         st.stop()
 
-    # Mostrar datos cargados
+    # Si todo bien → mostrar datos
     st.subheader("Datos originales")
     st.dataframe(df)
 
@@ -33,8 +30,7 @@ if archivo is not None:
     st.subheader("Seleccione la operación")
     opcion = st.selectbox(
         "¿Qué quieres hacer?",
-        ["Relleno de valores faltantes", "Normalización",
-         "Discretización", "Árbol de decisión"]
+        ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
     )
 
     # ---- 3. Relleno de valores faltantes ----
@@ -54,8 +50,9 @@ if archivo is not None:
                     file_name="resultado_imputacion.csv",
                     mime="text/csv"
                 )
+
             except Exception as e:
-                st.error(f"Error durante la imputación: {e}")
+                st.error(f"❌ Error durante la imputación: {e}")
 
     # ---- 4. Normalización ----
     elif opcion == "Normalización":
@@ -74,8 +71,9 @@ if archivo is not None:
                     file_name="resultado_normalizacion.csv",
                     mime="text/csv"
                 )
+
             except Exception as e:
-                st.error(f"Error durante la normalización: {e}")
+                st.error(f"❌ Error durante la normalización: {e}")
 
     # ---- 5. Discretización ----
     elif opcion == "Discretización":
@@ -94,33 +92,27 @@ if archivo is not None:
                     file_name="resultado_discretizacion.csv",
                     mime="text/csv"
                 )
+
             except Exception as e:
-                st.error(f"Error durante la discretización: {e}")
+                st.error(f"❌ Error durante la discretización: {e}")
 
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
-        # Elegir columna objetivo
-        columna_objetivo = st.selectbox("Selecciona la variable objetivo:", df.columns)
+        columnas = list(df.columns)
+        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
 
         if st.button("Entrenar árbol"):
             try:
-                resultado = aplicar_arbol_decision(df.copy(), columna_objetivo)
+                precision, modelo, reglas = aplicar_categorizacion(df.copy(), nombre_objetivo)
 
-                st.subheader("Árbol de decisión")
-                st.text(resultado["arbol"])
+                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
 
-                st.subheader("Precisión del modelo")
-                st.write(f"Score: {resultado['score']:.4f}")
-
-                # Descargar árbol como .txt
-                txt_data = resultado["arbol"].encode("utf-8")
-                st.download_button(
-                    "Descargar árbol (TXT)",
-                    data=txt_data,
-                    file_name="arbol_decision.txt",
-                    mime="text/plain"
-                )
+                st.subheader("Reglas del árbol (texto)")
+                st.text(reglas)
 
             except Exception as e:
-                st.error(f"Error al entrenar el árbol: {e}")
-
+                st.error(
+                    "❌ No se pudo entrenar el árbol de decisión. "
+                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
+                    f"Detalles: {e}"
+                )
