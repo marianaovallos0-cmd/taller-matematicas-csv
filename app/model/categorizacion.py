@@ -4,37 +4,29 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, export_t
 from sklearn.model_selection import train_test_split
 
 
-def generar_reglas_legibles(arbol_texto, decodificadores):
+def generar_reglas_legibles(arbol_texto, encoders):
     reglas = []
-    lineas = arbol_texto.split("\n")
-
-    # Convertir cada línea en una regla clara
-    for linea in lineas:
+    for linea in arbol_texto.split("\n"):
         l = linea.strip()
-        if "class:" in l:
+        if l == "" or l.startswith("class"):
             continue
         if "<=" in l or ">" in l:
-            partes = l.split()
-            col = partes[0]
-            operador = partes[1]
-            valor = partes[2]
+            col, op, val = l.split()[:3]
 
-            if col in decodificadores:
-                valor = decodificadores[col].inverse_transform([int(float(valor))])[0]
+            if col in encoders:
+                val = encoders[col].inverse_transform([int(float(val))])[0]
 
-            reglas.append(f"{col} {operador} {valor}")
+            reglas.append(f"Si {col} {op} {val}")
 
+        if "value" in l:
+            reglas[-1] += f" → {l}"
     return "\n".join(reglas)
 
 
 def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
 
-    data = df.copy()
+    data = df[columnas_usar + [columna_objetivo]].copy()
 
-    # Reducir solo a las columnas deseadas + objetivo
-    data = data[columnas_usar + [columna_objetivo]]
-
-    # ---- Codificar categóricas con decodificación guardada ----
     encoders = {}
     for col in data.columns:
         if data[col].dtype == "object":
@@ -42,7 +34,6 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
             data[col] = enc.fit_transform(data[col].astype(str))
             encoders[col] = enc
 
-    # ---- Separar X e y ----
     X = data[columnas_usar]
     y = data[columna_objetivo]
 
@@ -57,10 +48,7 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
 
     modelo.fit(X_train, y_train)
 
-    # ---- Estructura del árbol ----
     arbol_raw = export_text(modelo, feature_names=list(X.columns))
-
-    # ---- Generar reglas legibles ----
     reglas = generar_reglas_legibles(arbol_raw, encoders)
 
     return {

@@ -18,6 +18,8 @@ st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, 
 archivo = st.file_uploader("Sube un archivo CSV", type=["csv"])
 
 if archivo is not None:
+
+    # *** SIN CAMBIAR NADA ***
     df, error = cargar_csv(archivo)
 
     if error:
@@ -77,10 +79,10 @@ if archivo is not None:
         st.subheader("1. Selecciona la variable objetivo")
         columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
 
-        st.subheader("2. Selecciona las columnas que SÍ quieres usar en el modelo")
+        st.subheader("2. Selecciona las columnas que SÍ quieres usar")
         columnas_disponibles = [c for c in df.columns if c != columna_objetivo]
         columnas_seleccionadas = st.multiselect(
-            "Columnas predictoras (X):",
+            "Columnas predictoras:",
             columnas_disponibles,
             default=columnas_disponibles
         )
@@ -98,7 +100,7 @@ if archivo is not None:
                 st.subheader("Columnas usadas")
                 st.write(resultado["columnas_usadas"])
 
-                st.subheader("Árbol de decisión (estructura interna)")
+                st.subheader("Árbol completo")
                 st.code(resultado["arbol"], language="text")
 
                 st.subheader("Reglas legibles")
