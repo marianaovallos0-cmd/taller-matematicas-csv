@@ -4,42 +4,40 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, export_t
 from sklearn.model_selection import train_test_split
 
 
-def generar_reglas_legibles(arbol_texto, encoders, columna_objetivo, encoder_objetivo):
+def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
+    from sklearn.tree import _tree
+
+    tree_ = modelo.tree_
     reglas = []
-    regla_actual = ""
 
-    for linea in arbol_texto.split("\n"):
-        l = linea.strip()
-        if l == "":
-            continue
+    def recorrer_nodo(nodo, condiciones):
+        if tree_.feature[nodo] != _tree.TREE_UNDEFINED:
+            col = feature_names[tree_.feature[nodo]]
+            threshold = tree_.threshold[nodo]
 
-        # --- Nodo de condición ---
-        if "<=" in l or ">" in l:
-            partes = l.split()
-            col = partes[0]
-            op = partes[1]
-            val = partes[2]
+            recorrer_nodo(
+                tree_.children_left[nodo],
+                condiciones + [f"{col} <= {threshold:.2f}"]
+            )
+            recorrer_nodo(
+                tree_.children_right[nodo],
+                condiciones + [f"{col} > {threshold:.2f}"]
+            )
 
-            # Decodificar categorías
-            if col in encoders:
-                val = encoders[col].inverse_transform([int(float(val))])[0]
+        else:
+            # Hoja → obtener clase objetivo
+            valor = modelo.classes_[tree_.value[nodo].argmax()] \
+                    if hasattr(modelo, "classes_") else tree_.value[nodo][0][0]
 
-            regla_actual = f"Si {col} {op} {val}"
+            if target_encoder is not None:
+                valor = target_encoder.inverse_transform([int(valor)])[0]
 
-        # --- Nodo hoja / salida ---
-        if "value:" in l:
-            # extraer clase predicha
-            clase_raw = l.split("[")[1].split("]")[0]
+            regla = "Si " + " y ".join(condiciones) + f", entonces {valor}"
+            reglas.append(regla)
 
-            # decodificar clase objetivo si es categórica
-            try:
-                clase = encoder_objetivo.inverse_transform([int(float(clase_raw))])[0]
-            except:
-                clase = clase_raw
-
-            reglas.append(f"{regla_actual} → {columna_objetivo} = {clase}")
-
+    recorrer_nodo(0, [])
     return "\n".join(reglas)
+
 
 
 def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
@@ -47,7 +45,7 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     # --- Filtrar SOLO las columnas indicadas ---
     data = df[columnas_usar + [columna_objetivo]].copy()
 
-    # --- Codificación ---
+    # --- Label Encoding ---
     encoders = {}
     for col in data.columns:
         if data[col].dtype == "object":
@@ -58,14 +56,12 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
     X = data[columnas_usar]
     y = data[columna_objetivo]
 
-    # Guardar encoder del objetivo para reglas legibles
-    encoder_objetivo = encoders.get(columna_objetivo, None)
-
     # --- Elegir modelo ---
-    if y.dtype in ("int64", "float64"):
-        modelo = DecisionTreeRegressor(max_depth=4, random_state=0)
-    else:
+    # Si el objetivo fue codificado → es categórico → clasificador
+    if columna_objetivo in encoders:
         modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
+    else:
+        modelo = DecisionTreeRegressor(max_depth=4, random_state=0)
 
     # --- Entrenar ---
     X_train, X_test, y_train, y_test = train_test_split(
@@ -74,20 +70,18 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
 
     modelo.fit(X_train, y_train)
 
-    # --- Árbol en texto ---
+    # Árbol raw (estético)
     arbol_raw = export_text(modelo, feature_names=list(X.columns))
 
-    # --- Reglas legibles ---
+    # Reglas legibles reales
     reglas = generar_reglas_legibles(
-        arbol_raw,
-        encoders,
-        columna_objetivo,
-        encoder_objetivo
+        modelo,
+        list(X.columns),
+        target_encoder=encoders.get(columna_objetivo)
     )
 
     return {
         "arbol": arbol_raw,
         "reglas": reglas,
-        "score": modelo.score(X_test, y_test),
         "columnas_usadas": columnas_usar
     }
