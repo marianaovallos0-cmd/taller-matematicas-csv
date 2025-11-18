@@ -1,65 +1,59 @@
 import pandas as pd
-import numpy as np
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, export_text
 from sklearn.preprocessing import LabelEncoder
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, export_text
 from sklearn.model_selection import train_test_split
 
-def entrenar_arbol_decision(df, nombre_objetivo):
 
-    if nombre_objetivo not in df.columns:
-        raise ValueError(f"La columna objetivo '{nombre_objetivo}' no existe en el dataset.")
+def generar_reglas_legibles(arbol_texto, encoders):
+    reglas = []
+    for linea in arbol_texto.split("\n"):
+        l = linea.strip()
+        if l == "" or l.startswith("class"):
+            continue
+        if "<=" in l or ">" in l:
+            col, op, val = l.split()[:3]
 
-    y = df[nombre_objetivo]
-    X = df.drop(columns=[nombre_objetivo])
+            if col in encoders:
+                val = encoders[col].inverse_transform([int(float(val))])[0]
 
-    if y.isna().any():
-        modo = y.mode()
-        if len(modo) > 0:
-            y = y.fillna(modo.iloc[0])
-        else:
-            # Si no hay moda se rellena con 0
-            y = y.fillna(0)
+            reglas.append(f"Si {col} {op} {val}")
 
-    X = X.fillna(0)
+        if "value" in l:
+            reglas[-1] += f" → {l}"
+    return "\n".join(reglas)
 
-    label_encoders = {}
-    for col in X.columns:
-        if X[col].dtype == "object":
-            le = LabelEncoder()
-            X[col] = le.fit_transform(X[col].astype(str))
-            label_encoders[col] = le
 
-    if y.dtype == "object":
-        y = LabelEncoder().fit_transform(y.astype(str))
-        model = DecisionTreeClassifier()
+def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
+
+    data = df[columnas_usar + [columna_objetivo]].copy()
+
+    encoders = {}
+    for col in data.columns:
+        if data[col].dtype == "object":
+            enc = LabelEncoder()
+            data[col] = enc.fit_transform(data[col].astype(str))
+            encoders[col] = enc
+
+    X = data[columnas_usar]
+    y = data[columna_objetivo]
+
+    if y.dtype in ["int64", "float64"]:
+        modelo = DecisionTreeRegressor(max_depth=4, random_state=0)
     else:
-        model = DecisionTreeRegressor()
+        modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
 
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.3, random_state=0
+    )
 
-    if X.shape[1] == 0:
-        raise ValueError("No hay columnas suficientes para entrenar el árbol de decisión.")
+    modelo.fit(X_train, y_train)
 
-    try:
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-    except ValueError as e:
-        raise ValueError("No se puede dividir el dataset. Verifica NaN o columnas vacías.\n" + str(e))
+    arbol_raw = export_text(modelo, feature_names=list(X.columns))
+    reglas = generar_reglas_legibles(arbol_raw, encoders)
 
-    try:
-        model.fit(X_train, y_train)
-    except Exception as e:
-        raise ValueError("Error entrenando el árbol de decisión:\n" + str(e))
-
-    try:
-        precision = model.score(X_test, y_test)
-    except Exception:
-        precision = 0
-
-
-    try:
-        reglas = export_text(model, feature_names=list(X.columns))
-    except Exception:
-        reglas = "No se pudieron generar reglas."
-
-    return precision, model, reglas
+    return {
+        "arbol": arbol_raw,
+        "reglas": reglas,
+        "score": modelo.score(X_test, y_test),
+        "columnas_usadas": columnas_usar
+    }

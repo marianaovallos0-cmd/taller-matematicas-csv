@@ -98,21 +98,39 @@ if archivo is not None:
 
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
-        columnas = list(df.columns)
-        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+
+        st.subheader("1. Selecciona la variable objetivo")
+        columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
+
+        st.subheader("2. Selecciona las columnas que SÍ quieres usar")
+        columnas_disponibles = [c for c in df.columns if c != columna_objetivo]
+        columnas_seleccionadas = st.multiselect(
+            "Columnas predictoras:",
+            columnas_disponibles,
+            default=columnas_disponibles
+        )
 
         if st.button("Entrenar árbol"):
             try:
-                precision, modelo, reglas = aplicar_categorizacion(df.copy(), nombre_objetivo)
+                resultado = aplicar_arbol_decision(
+                    df.copy(),
+                    columna_objetivo,
+                    columnas_seleccionadas
+                )
 
-                st.success(f"Precisión en el conjunto de prueba: {precision:.2f}")
+                st.success("Árbol entrenado exitosamente")
 
-                st.subheader("Reglas del árbol (texto)")
-                st.text(reglas)
+                st.subheader("Columnas usadas")
+                st.write(resultado["columnas_usadas"])
+
+                st.subheader("Árbol completo")
+                st.code(resultado["arbol"], language="text")
+
+                st.subheader("Reglas legibles")
+                st.code(resultado["reglas"], language="text")
+
+                st.subheader("Score del modelo")
+                st.write(f"{resultado['score']:.4f}")
 
             except Exception as e:
-                st.error(
-                    "❌ No se pudo entrenar el árbol de decisión. "
-                    "Verifica que el dataset tenga suficientes columnas numéricas o categóricas válidas.\n\n"
-                    f"Detalles: {e}"
-                )
+                st.error(f"Error al entrenar el árbol: {e}")

@@ -49,6 +49,5 @@ def discretizar_chimerge(df, num_bins=4):
         print("Error en ChiMerge:", e)
         return df
 
-def aplicar_categorizacion(df, nombre_objetivo):
-    # ahora devuelve precisión, modelo, reglas
-    return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)
+def aplicar_arbol_decision(df, columna_objetivo, columnas_usar):
+    return categorizacion.entrenar_arbol_decision(df, columna_objetivo, columnas_usar)
