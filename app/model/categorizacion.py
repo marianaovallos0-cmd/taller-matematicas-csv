@@ -1,7 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier, export_text
-from sklearn.model_selection import train_test_split
 import numpy as np
 
 
@@ -26,9 +25,7 @@ def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
             )
 
         else:
-            valor = modelo.classes_[tree_.value[nodo].argmax()] \
-                if hasattr(modelo, "classes_") else tree_.value[nodo][0][0]
-
+            valor = modelo.classes_[tree_.value[nodo].argmax()]
             if target_encoder is not None:
                 valor = target_encoder.inverse_transform([int(valor)])[0]
 
@@ -42,23 +39,20 @@ def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
 
 def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
 
-    # --- Verificar que SOLO la columna objetivo tenga faltantes ---
-    columnas_predictoras = columnas_usar
-    predictors_with_nan = df[columnas_predictoras].isna().any()
-
+    # Verificar que no falten valores en las predictoras
+    predictors_with_nan = df[columnas_usar].isna().any()
     if predictors_with_nan.any():
         raise Exception(
-            "Faltan datos para poder predecir o categorizar. "
-            "Primero completa los valores faltantes en las columnas predictoras."
+            "Faltan datos en las columnas predictoras. Complétalos antes de entrenar."
         )
 
-    # --- Filtrar SOLO las columnas indicadas ---
+    # Filtrar columnas necesarias
     data = df[columnas_usar + [columna_objetivo]].copy()
 
-    # --- Guardar filas con NaN en objetivo ---
+    # Guardar filas donde el objetivo está vacío
     filas_faltantes = data[data[columna_objetivo].isna()].copy()
 
-    # --- Label Encoding ---
+    # Label encoding
     encoders = {}
     for col in data.columns:
         if data[col].dtype == "object":
@@ -67,43 +61,42 @@ def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
             enc.fit(no_nulos)
 
             data[col] = data[col].apply(
-                lambda v: enc.transform([str(v)])[0] if pd.notna(v) else np.nan
+                lambda v: enc.transform([str(v)])[0] if pd.notna(v) else -1
             )
 
             encoders[col] = enc
 
+    # Separar datos para entrenar
     X = data[columnas_usar]
     y = data[columna_objetivo]
 
-    # --- Separar filas completas para entrenar ---
-    X_train = X[~y.isna()]
-    y_train = y[~y.isna()]
+    X_train = X[y != -1]
+    y_train = y[y != -1]
 
-    # --- Modelo ---
+    # Modelo
     modelo = DecisionTreeClassifier(max_depth=4, random_state=0)
-
-    # --- Entrenar ---
     modelo.fit(X_train, y_train)
 
-    # --- Árbol raw ---
+    # Árbol raw
     arbol_raw = export_text(modelo, feature_names=list(X.columns))
 
-    # --- Reglas legibles ---
+    # Reglas legibles
     reglas = generar_reglas_legibles(
         modelo,
         list(X.columns),
         target_encoder=encoders.get(columna_objetivo)
     )
 
-    # --- Predecir valores faltantes del objetivo ---
+    # Predecir valores faltantes del objetivo
     valores_rellenados = None
     if len(filas_faltantes) > 0:
         filas_cod = filas_faltantes[columnas_usar].copy()
 
-        # Codificar predictoras si es necesario
         for col in filas_cod.columns:
             if col in encoders:
-                filas_cod[col] = encoders[col].transform(filas_cod[col].astype(str))
+                filas_cod[col] = filas_cod[col].apply(
+                    lambda v: encoders[col].transform([str(v)])[0] if pd.notna(v) else -1
+                )
 
         pred = modelo.predict(filas_cod)
 
