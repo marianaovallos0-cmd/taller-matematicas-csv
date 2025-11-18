@@ -27,28 +27,8 @@ def aplicar_discretizacion(df, metodo):
         return discretizacion.discretizar_ancho_igual(df)
     if metodo == "Equal Frequency":
         return discretizacion.discretizar_frecuencia_igual(df)
-    if metodo == "ChiMerge":
-        return discretizacion.discretizar_chimerge(df)
     return df
 
-def discretizar_chimerge(df, num_bins=4):
-    try:
-        from chimerge import ChiMerge
-
-        df_copy = df.copy()
-
-        # Aplica ChiMerge SOLO a columnas numéricas
-        columnas_numericas = df_copy.select_dtypes(include=["int64", "float64"]).columns
-
-        for col in columnas_numericas:
-            df_copy[col] = ChiMerge(df_copy[col], max_intervals=num_bins)["bin"]
-
-        return df_copy
-
-    except Exception as e:
-        print("Error en ChiMerge:", e)
-        return df
-
 def aplicar_categorizacion(df, nombre_objetivo):
-    # Ahora devuelve 4 valores: precisión, modelo, reglas_texto, reglas_tabla
+    # Ahora devuelve 4 valores: precisión, modelo, reglas, df_completo
     return categorizacion.entrenar_arbol_decision(df, nombre_objetivo)

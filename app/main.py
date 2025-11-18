@@ -6,7 +6,8 @@ from controller import (
     aplicar_discretizacion, aplicar_categorizacion
 )
 
-st.set_page_config(page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
+st.set_page_config(
+    page_title="Taller Matemáticas Aplicadas - CSV", layout="centered")
 
 st.title("Taller Matemáticas Aplicadas - CSV")
 st.write("Sube un archivo CSV y aplica una operación: relleno, normalización, discretización o árbol de decisión.")
@@ -30,12 +31,14 @@ if archivo is not None:
     st.subheader("Seleccione la operación")
     opcion = st.selectbox(
         "¿Qué quieres hacer?",
-        ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
+        ["Relleno de valores faltantes", "Normalización",
+            "Discretización", "Árbol de decisión"]
     )
 
     # ---- 3. Relleno de valores faltantes ----
     if opcion == "Relleno de valores faltantes":
-        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
+        metodo = st.selectbox(
+            "Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
 
         if st.button("Aplicar relleno"):
             try:
@@ -99,38 +102,23 @@ if archivo is not None:
     # ---- 6. Árbol de decisión ----
     elif opcion == "Árbol de decisión":
         columnas = list(df.columns)
-        nombre_objetivo = st.selectbox("Selecciona la columna objetivo (target):", columnas)
+        nombre_objetivo = st.selectbox(
+            "Selecciona la columna objetivo (target):", columnas)
 
         if st.button("Entrenar árbol y predecir"):
             try:
-                precision, modelo, reglas, reglas_tabla, df_completo = aplicar_categorizacion(df.copy(), nombre_objetivo)
+                precision, modelo, reglas, df_completo = aplicar_categorizacion(
+                    df.copy(), nombre_objetivo)
 
-                st.success(f"Precisión del modelo: {precision:.2f}")
+                st.success(f"✅ Precisión del modelo: {precision:.2f}")
 
                 # Mostrar tabla completa con predicciones
                 st.subheader("📊 Tabla Completa con Predicciones")
                 st.dataframe(df_completo, use_container_width=True)
 
-                # Pestañas para reglas
-                tab1, tab2 = st.tabs(["📋 Reglas en Formato Tabla", "📝 Reglas en Texto"])
-
-                with tab1:
-                    st.subheader("Reglas de Clasificación")
-                    if reglas_tabla:
-                        # Mostrar en formato de lista numerada
-                        for regla in reglas_tabla:
-                            st.write(f"**{regla['Número']}.** SI {regla['Condiciones']}, ENTONCES {regla[f'Entonces {nombre_objetivo}']}")
-                    
-                        # También mostrar como tabla
-                        st.subheader("Tabla de Reglas")
-                        df_reglas = pd.DataFrame(reglas_tabla)
-                        st.dataframe(df_reglas, use_container_width=True)
-                    else:
-                        st.warning("No se pudieron generar reglas en formato tabla")
-
-                with tab2:
-                    st.subheader("Reglas del árbol (texto)")
-                    st.text_area("Reglas:", reglas, height=300)
+                # Mostrar reglas en texto
+                st.subheader("📝 Reglas del Árbol de Decisión")
+                st.text_area("Reglas generadas:", reglas, height=400)
 
             except Exception as e:
                 st.error(f"❌ Error: {e}")
