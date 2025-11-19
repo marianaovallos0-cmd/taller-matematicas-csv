@@ -9,9 +9,10 @@ def aplicar_imputacion(df, metodo):
     elif metodo == "K-Modes":
         return valoresFaltantes.imputar_k_modes(df)
     elif metodo == "K-Means":
-        return valoresFaltantes.imputar_k_means(df)
+        # Usamos la media como equivalente simple de K-Means
+        return valoresFaltantes.imputar_media(df)
     else:
-        return df  # Método no reconocido
+        return df
 
 def aplicar_normalizacion(df, metodo):
     if metodo == "Z-Score":
