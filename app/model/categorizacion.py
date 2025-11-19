@@ -52,61 +52,49 @@ def _nice_condition_for_split(feature_name, threshold, is_categorical, inverse_m
         # numérico: mostrar comparación con 2 decimales
         return f"{feature_name} <= {threshold:.2f}"
 
-def generar_reglas_legibles(modelo, feature_names, categorical_info):
-    """
-    categorical_info: dict feature_name -> inverse_map (o None si numérica)
-    Retorna cadena con reglas legibles.
-    """
-    from sklearn.tree import _tree
-    tree_ = modelo.tree_
-    reglas = []
+def reglas_legibles(modelo, feature_names, encoders, target_encoder):
+    tree = modelo.tree_
+    rules = []
 
-    def recorrer(nodo, condiciones):
-        if tree_.feature[nodo] != _tree.TREE_UNDEFINED:
-            idx = tree_.feature[nodo]
-            feature_name = feature_names[idx]
-            threshold = tree_.threshold[nodo]
-            is_cat = feature_name in categorical_info and categorical_info[feature_name] is not None
+    def recorrer(nodo, regla_actual):
+        if tree.feature[nodo] != -2:  # Si no es hoja
+            feature = feature_names[tree.feature[nodo]]
+            threshold = tree.threshold[nodo]
 
-            # rama izquierda: <= threshold
-            cond_izq = condiciones + [_nice_condition_for_split(feature_name, threshold, is_cat, categorical_info.get(feature_name))]
-            recorrer(tree_.children_left[nodo], cond_izq)
+            # Si la columna fue codificada, recuperar el encoder
+            if feature in encoders:
+                encoder = encoders[feature]
+                categorias = encoder.classes_
+                codigos = range(len(categorias))
 
-            # rama derecha: > threshold
-            # Para derecha convertimos la condición complementaria:
-            if is_cat and categorical_info.get(feature_name) is not None:
-                # si la izquierda era "feature in {A,B}", la derecha es "feature in {rest}"
-                inv = categorical_info[feature_name]
-                t = float(threshold)
-                upper = int(np.floor(t))
-                left_codes = set(range(0, upper + 1))
-                all_codes = set(inv.keys())
-                right_codes = sorted(all_codes - left_codes)
-                if len(right_codes) == 0:
-                    cond_der = [f"{feature_name} > {threshold:.2f}"]
-                elif len(right_codes) == 1:
-                    cond_der = [f"{feature_name} = {inv[right_codes[0]]}"]
-                else:
-                    cats = [inv[i] for i in right_codes]
-                    cond_der = [f"{feature_name} in {{{', '.join(map(str, cats))}}}"]
+                menores = [cat for cat, code in zip(categorias, codigos) if code <= threshold]
+                mayores = [cat for cat, code in zip(categorias, codigos) if code > threshold]
+
+                # Rama izquierda
+                regla_left = regla_actual + [f"{feature} ∈ {menores}"]
+                recorrer(tree.children_left[nodo], regla_left)
+
+                # Rama derecha
+                regla_right = regla_actual + [f"{feature} ∈ {mayores}"]
+                recorrer(tree.children_right[nodo], regla_right)
+
             else:
-                cond_der = condiciones + [f"{feature_name} > {threshold:.2f}"]
+                # Columna numérica normal
+                regla_left = regla_actual + [f"{feature} <= {threshold:.2f}"]
+                recorrer(tree.children_left[nodo], regla_left)
 
-            if is_cat and categorical_info.get(feature_name) is not None:
-                recorrer(tree_.children_right[nodo], condiciones + cond_der)
-            else:
-                recorrer(tree_.children_right[nodo], cond_der)
+                regla_right = regla_actual + [f"{feature} > {threshold:.2f}"]
+                recorrer(tree.children_right[nodo], regla_right)
 
         else:
-            # Nodo hoja: tomar la clase con mayor conteo
-            values = tree_.value[nodo][0]
-            class_index = int(np.argmax(values))
-            predicted = modelo.classes_[class_index]
-            regla = "Si " + " y ".join(condiciones) + f", entonces {predicted}"
-            reglas.append(regla)
+            # Es hoja → obtener clase
+            clase = target_encoder.inverse_transform([np.argmax(tree.value[nodo])])[0]
+            regla_final = " Y ".join(regla_actual)
+            rules.append(f"Si {regla_final}, entonces {clase}")
 
     recorrer(0, [])
-    return "\n".join(reglas)
+    return rules
+
 
 # -----------------------
 # Entrenamiento y predicción
