@@ -13,7 +13,7 @@ def cargar_csv(file):
 
     # 2. Leer contenido para verificar si tiene estructura de tabla
     contenido = file.getvalue().decode("utf-8", errors="ignore")
-    
+
     # Validar que tenga separadores
     if "," not in contenido and ";" not in contenido and "\t" not in contenido:
         return None, "El archivo NO contiene separadores. Parece texto plano"
@@ -21,7 +21,6 @@ def cargar_csv(file):
     try:
         # Intentar leer CSV separando por coma o punto y coma
         try:
-            file.seek(0)
             df = pd.read_csv(file)
         except Exception:
             file.seek(0)
@@ -54,15 +53,9 @@ def cargar_csv(file):
                         "El archivo cargado parece ser texto plano y NO una tabla."
                     )
 
-        # 6. Detectar y manejar columnas completamente vacías
-        columnas_vacias = df.columns[df.isnull().all()].tolist()
-        if columnas_vacias:
-            print(f"Advertencia: Columnas completamente vacías detectadas: {columnas_vacias}")
-            # No las eliminamos automáticamente, solo informamos
-
         return df, None
 
     except (ArchivoInvalidoException, TablaInvalidaException) as e:
         return None, str(e)
-    except Exception as e:
-        return None, f"Error desconocido: {str(e)}"
+    except Exception:
+        return None, "Error desconocido: el archivo no tiene estructura válida."
