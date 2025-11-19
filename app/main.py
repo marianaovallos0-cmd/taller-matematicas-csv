@@ -35,22 +35,11 @@ if archivo is not None:
     # ---- 3. Relleno ----
     if opcion == "Relleno de valores faltantes":
         metodo = st.selectbox("Método:", ["KNN", "K-Modes", "K-Means"])
-    
-        # Parámetros específicos para cada método
-        if metodo == "KNN":
-            vecinos = st.slider("Número de vecinos (K):", 1, 10, 3)
-        elif metodo == "K-Means":
-            clusters = st.slider("Número de clusters:", 2, 10, 3)
 
         if st.button("Aplicar relleno"):
             try:
-                if metodo == "KNN":
-                    resultado = aplicar_imputacion(df.copy(), metodo)  # Se pasan parámetros si es necesario
-                elif metodo == "K-Means":
-                    resultado = aplicar_imputacion(df.copy(), metodo)
-                else:
-                    resultado = aplicar_imputacion(df.copy(), metodo)
-                
+                resultado = aplicar_imputacion(df.copy(), metodo)
+            
                 st.subheader("Resultado")
                 st.dataframe(resultado)
 
@@ -71,26 +60,6 @@ if archivo is not None:
                 )
             except Exception as e:
                 st.error(f"❌ Error durante la imputación: {e}")
-
-    # ---- 4. Normalización ----
-    elif opcion == "Normalización":
-        metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
-
-        if st.button("Aplicar normalización"):
-            try:
-                resultado = aplicar_normalizacion(df.copy(), metodo)
-                st.subheader("Resultado")
-                st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_normalizacion.csv",
-                    mime="text/csv"
-                )
-            except Exception as e:
-                st.error(f"❌ Error durante la normalización: {e}")
 
     # ---- 5. Discretización ----
     elif opcion == "Discretización":

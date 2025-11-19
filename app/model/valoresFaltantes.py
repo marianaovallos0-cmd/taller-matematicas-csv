@@ -3,7 +3,7 @@ from sklearn.cluster import KMeans
 import pandas as pd
 import numpy as np
 
-def imputar_knn(df, vecinos=3):
+def imputar_knn(df):
    
     df_copy = df.copy()
     
@@ -11,11 +11,10 @@ def imputar_knn(df, vecinos=3):
     numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
     
     if len(numeric_cols) == 0:
-        st.warning("⚠️ No hay columnas numéricas para aplicar KNN")
         return df_copy
     
-    # Crear y aplicar el imputador KNN
-    imputer = KNNImputer(n_neighbors=vecinos)
+    # Crear y aplicar el imputador KNN con 3 vecinos
+    imputer = KNNImputer(n_neighbors=3)
     numeric_array = imputer.fit_transform(df_copy[numeric_cols])
     
     # Reconstruir el DataFrame
@@ -25,15 +24,14 @@ def imputar_knn(df, vecinos=3):
     return df_copy
 
 
-def imputar_k_modes(df, k=3):
-    
+def imputar_k_modes(df):
+   
     df_copy = df.copy()
     
     # Seleccionar solo columnas categóricas
     object_cols = df_copy.select_dtypes(include=['object', 'category']).columns
     
     if len(object_cols) == 0:
-        st.warning("⚠️ No hay columnas categóricas para aplicar K-Modes")
         return df_copy
     
     # Para cada columna categórica, rellenar con la moda
@@ -48,15 +46,14 @@ def imputar_k_modes(df, k=3):
     return df_copy
 
 
-def imputar_k_means(df, n_clusters=3):
-   
+def imputar_k_means(df):
+    
     df_copy = df.copy()
     
     # Seleccionar solo columnas numéricas
     numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
     
     if len(numeric_cols) == 0:
-        st.warning("⚠️ No hay columnas numéricas para aplicar K-Means")
         return df_copy
     
     # Para cada columna con valores faltantes
@@ -74,8 +71,8 @@ def imputar_k_means(df, n_clusters=3):
             caracteristicas = [c for c in numeric_cols if c != columna]
             
             if len(caracteristicas) > 0:
-                # Entrenar K-Means con datos completos
-                kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                # Entrenar K-Means con datos completos (3 clusters por defecto)
+                kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
                 kmeans.fit(datos_completos[caracteristicas])
                 
                 # Para cada dato incompleto, encontrar el cluster más cercano
