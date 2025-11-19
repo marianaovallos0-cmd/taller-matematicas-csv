@@ -1,216 +1,146 @@
-# categorizacion.py
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import LabelEncoder
 from sklearn.tree import DecisionTreeClassifier, export_text
-from sklearn import tree as _sk_tree
-from model import valoresFaltantes
+from sklearn.tree import _tree
 
-# -----------------------
-# Helpers de encoding
-# -----------------------
-def _make_mapping(series):
-    """Mapeo value(string) -> int y su inverso. Mantiene orden de aparición."""
-    uniques = list(series.dropna().astype(str).unique())
-    mapping = {v: i for i, v in enumerate(uniques)}
-    inverse = {i: v for v, i in mapping.items()}
-    return mapping, inverse
-
-def _encode_series(series, mapping):
-    """Encode una serie usando mapping; NaN -> -1; valores desconocidos -> -1."""
-    return series.apply(lambda v: mapping.get(str(v), -1) if pd.notna(v) else -1).astype(int)
-
-def _decode_value(val, inverse_map):
-    """Decodifica tratando -1 como None (sin valor)."""
-    if val is None:
-        return None
-    try:
-        iv = int(val)
-    except Exception:
-        return str(val)
-    if iv == -1:
-        return None
-    return inverse_map.get(iv, str(iv))
-
-# -----------------------
-# Generación de reglas legibles
-# -----------------------
-def _codes_leq_threshold(threshold):
-    """Dado threshold float devuelve el upper code incluido (floor)."""
-    return int(np.floor(float(threshold)))
-
-def _format_category_set(codes, inverse_map):
-    """Formato legible para un conjunto de códigos: si 1 elemento -> 'col = X', si varios -> 'col in {A,B}'"""
-    cats = [inverse_map[c] for c in sorted(codes) if c in inverse_map]
-    if len(cats) == 0:
-        return None
-    if len(cats) == 1:
-        return cats[0]
-    return "{" + ", ".join(map(str, cats)) + "}"
-
-def _generate_rules(modelo, feature_names, categorical_inverse_maps, target_inverse_map, target_is_categorical):
-    """
-    Recorre el árbol y genera reglas legibles.
-    - categorical_inverse_maps: dict feature -> inverse_map (or None)
-    - target_inverse_map: map int->value if target categorical else None
-    """
+def generar_reglas_legibles(modelo, feature_names, target_encoder=None):
+    """Genera reglas legibles a partir del árbol de decisión"""
     tree_ = modelo.tree_
-    rules = []
+    feature_names = [f"{name}" for i, name in enumerate(feature_names)]
+    
+    reglas = []
 
-    def recorrer(nodo, condiciones):
-        # Nodo interno
-        if tree_.feature[nodo] != _sk_tree._tree.TREE_UNDEFINED:
-            feat_idx = tree_.feature[nodo]
-            feat_name = feature_names[feat_idx]
-            thr = tree_.threshold[nodo]
-            is_cat = feat_name in categorical_inverse_maps and categorical_inverse_maps[feat_name] is not None
-
-            # Izquierda: <= threshold
-            if is_cat:
-                upper = _codes_leq_threshold(thr)
-                left_codes = set([c for c in categorical_inverse_maps[feat_name].keys() if c <= upper])
-                left_text = _format_category_set(left_codes, categorical_inverse_maps[feat_name])
-                if left_text is not None:
-                   cond_left = condiciones + [f"{feat_name} = {left_text}" if not left_text.startswith("{") else f"{feat_name} in {left_text}"]
-                else:
-                    cond_left = condiciones + [f"{feat_name} <= {thr:.2f}"]
-            else:
-                cond_left = condiciones + [f"{feat_name} <= {thr:.2f}"]
-
-            recorrer(tree_.children_left[nodo], cond_left)
-
-            # Derecha: > threshold
-            if is_cat:
-                upper = _codes_leq_threshold(thr)
-                all_codes = set(categorical_inverse_maps[feat_name].keys())
-                right_codes = sorted(all_codes - set([c for c in categorical_inverse_maps[feat_name].keys() if c <= upper]))
-                right_text = _format_category_set(right_codes, categorical_inverse_maps[feat_name])
-                if right_text is not None:
-                    cond_right = condiciones + [f"{feat_name} = {right_text}" if not right_text.startswith("{") else f"{feat_name} in {right_text}"]
-                else:
-                    cond_right = condiciones + [f"{feat_name} > {thr:.2f}"]
-            else:
-                cond_right = condiciones + [f"{feat_name} > {thr:.2f}"]
-
-            recorrer(tree_.children_right[nodo], cond_right)
-
+    def recursivo(nodo, regla_actual):
+        if tree_.feature[nodo] != _tree.TREE_UNDEFINED:
+            name = feature_names[tree_.feature[nodo]]
+            threshold = tree_.threshold[nodo]
+            
+            # Rama izquierda
+            izquierda_regla = regla_actual + [f"{name} <= {threshold:.2f}"]
+            recursivo(tree_.children_left[nodo], izquierda_regla)
+            
+            # Rama derecha
+            derecha_regla = regla_actual + [f"{name} > {threshold:.2f}"]
+            recursivo(tree_.children_right[nodo], derecha_regla)
         else:
-            # Hoja: tomar clase con mayor soporte
-            vals = tree_.value[nodo][0]
-            class_idx = int(np.argmax(vals))
-            if target_is_categorical and target_inverse_map is not None:
-                predicted = target_inverse_map.get(class_idx, str(class_idx))
-            else:
-                # Si no es categórico, sklearn almacena clases_ igual; extraemos clase
+            # Nodo hoja
+            class_id = np.argmax(tree_.value[nodo])
+            class_name = class_id
+            if target_encoder is not None:
                 try:
-                    predicted = modelo.classes_[class_idx]
-                except Exception:
-                    predicted = str(class_idx)
-            cond_text = " y ".join(condiciones) if condiciones else "(sin condiciones)"
-            rules.append(f"Si {cond_text}, entonces {predicted}")
-
-    recorrer(0, [])
-    return "\n".join(rules)
-
-# -----------------------
-# Entrenamiento / Función pública
-# -----------------------
-def entrenar_arbol_decision(df, columna_objetivo, columnas_usar, max_depth=4, random_state=0):
-    """
-    Entrena árbol, genera reglas legibles y rellena filas con target faltante.
-    Retorna dict: arbol (raw), reglas (string), columnas_usadas, valores_rellenados (DataFrame o None)
-    """
-    # Validaciones
-    if columna_objetivo not in df.columns:
-        raise Exception("La columna objetivo no existe en el DataFrame.")
-    for c in columnas_usar:
-        if c not in df.columns:
-            raise Exception(f"Columna predictora inexistente: {c}")
-
-    # Si hay NaN en predictoras, aplicamos imputación automática (mix)
-    if df[columnas_usar].isna().any(axis=None):
-        df = valoresFaltantes.imputar_mix(df)
-
-    data = df[columnas_usar + [columna_objetivo]].copy()
-
-    # Filas donde objetivo está vacío (para predecir luego)
-    filas_faltantes_idx = data[data[columna_objetivo].isna()].index.tolist()
-    filas_faltantes = data.loc[filas_faltantes_idx].copy() if len(filas_faltantes_idx) > 0 else pd.DataFrame()
-
-    # Preparar encoders (mapping dicts) e inverse maps
-    encoders = {}       # col -> mapping value->int
-    inverse_maps = {}   # col -> inverse_map int->value
-    categorical_inverse_maps = {}  # feature -> inverse_map or None
-
-    X = pd.DataFrame(index=data.index)
-    for col in columnas_usar:
-        if data[col].dtype == 'object' or str(data[col].dtype).startswith("category"):
-            mapping, inverse = _make_mapping(data[col])
-            encoders[col] = mapping
-            inverse_maps[col] = inverse
-            categorical_inverse_maps[col] = inverse
-            X[col] = _encode_series(data[col], mapping)
-        else:
-            categorical_inverse_maps[col] = None
-            X[col] = data[col].astype(float).fillna(data[col].mean())
-
-    # Preparar target (y)
-    y_series = data[columna_objetivo]
-    target_is_categorical = False
-    target_inverse_map = None
-    if y_series.dtype == 'object' or str(y_series.dtype).startswith("category"):
-        target_is_categorical = True
-        tmap, tinv = _make_mapping(y_series)
-        encoders[columna_objetivo] = tmap
-        inverse_maps[columna_objetivo] = tinv
-        target_inverse_map = tinv
-        y = _encode_series(y_series, tmap)
-    else:
-        y = y_series.copy()
-
-    # Entrenar solo con filas donde y no es NaN
-    train_mask = ~y.isna()
-    X_train = X.loc[train_mask]
-    y_train = y.loc[train_mask]
-
-    if X_train.shape[0] == 0:
-        raise Exception("No hay filas con valor objetivo para entrenar.")
-
-    if target_is_categorical:
-        y_train = y_train.astype(int)
-
-    modelo = DecisionTreeClassifier(max_depth=max_depth, random_state=random_state)
-    modelo.fit(X_train, y_train)
-
-    arbol_raw = export_text(modelo, feature_names=list(X.columns))
-
-    # Generar reglas legibles
-    reglas = _generate_rules(modelo, list(X.columns), categorical_inverse_maps, target_inverse_map, target_is_categorical)
-
-    # Predecir filas faltantes del objetivo (si las hubiera)
-    valores_rellenados = None
-    if not filas_faltantes.empty:
-        filas_cod = pd.DataFrame(index=filas_faltantes.index)
-        for col in columnas_usar:
-            if col in encoders and categorical_inverse_maps.get(col) is not None:
-                filas_cod[col] = _encode_series(filas_faltantes[col], encoders[col])
+                    class_name = target_encoder.inverse_transform([class_id])[0]
+                except:
+                    class_name = class_id
+            
+            if regla_actual:
+                regla_completa = "SI " + " Y ".join(regla_actual) + f" ENTONCES → {class_name}"
             else:
-                filas_cod[col] = filas_faltantes[col].astype(float).fillna(X[col].mean())
+                regla_completa = f"PREDICCIÓN POR DEFECTO: {class_name}"
+            
+            reglas.append(regla_completa)
 
-        pred = modelo.predict(filas_cod)
+    recursivo(0, [])
+    return "\n".join(reglas)
 
-        if target_is_categorical and target_inverse_map is not None:
-            pred_decoded = [_decode_value(p, target_inverse_map) for p in pred]
-        else:
-            # Si no es categórico, devolver como vienen (pueden ser ints)
-            pred_decoded = pred.tolist()
-
-        df_rellenadas = filas_faltantes.copy()
-        df_rellenadas[columna_objetivo] = pred_decoded
-        valores_rellenados = df_rellenadas
-
+def entrenar_arbol_decision(df, columna_objetivo, columnas_usar):
+    """Entrena árbol de decisión de forma robusta"""
+    
+    # Validaciones iniciales
+    if columna_objetivo not in df.columns:
+        raise Exception(f"La columna objetivo '{columna_objetivo}' no existe")
+    
+    for col in columnas_usar:
+        if col not in df.columns:
+            raise Exception(f"La columna '{col}' no existe")
+    
+    if len(columnas_usar) == 0:
+        raise Exception("Debes seleccionar al menos una columna predictora")
+    
+    # Preparar datos
+    data = df[columnas_usar + [columna_objetivo]].copy()
+    
+    # Separar datos completos vs datos con objetivo faltante
+    datos_entrenamiento = data.dropna(subset=[columna_objetivo])
+    datos_prediccion = data[data[columna_objetivo].isna()]
+    
+    if len(datos_entrenamiento) == 0:
+        raise Exception("No hay datos con valores en la columna objetivo para entrenar")
+    
+    # Encoding de variables categóricas
+    encoders = {}
+    datos_encoded = datos_entrenamiento.copy()
+    
+    for col in columnas_usar + [columna_objetivo]:
+        if datos_encoded[col].dtype == 'object':
+            encoder = LabelEncoder()
+            # Solo encoding si hay valores no nulos
+            non_null_mask = datos_encoded[col].notna()
+            if non_null_mask.any():
+                datos_encoded.loc[non_null_mask, col] = encoder.fit_transform(
+                    datos_encoded.loc[non_null_mask, col].astype(str)
+                )
+                encoders[col] = encoder
+    
+    # Preparar datos de entrenamiento
+    X = datos_encoded[columnas_usar]
+    y = datos_encoded[columna_objetivo]
+    
+    # Entrenar modelo
+    modelo = DecisionTreeClassifier(
+        max_depth=4, 
+        min_samples_split=2, 
+        random_state=42
+    )
+    modelo.fit(X, y)
+    
+    # Generar resultados
+    arbol_texto = export_text(modelo, feature_names=columnas_usar)
+    reglas_legibles = generar_reglas_legibles(
+        modelo, columnas_usar, encoders.get(columna_objetivo)
+    )
+    
+    # Predecir valores faltantes si hay
+    valores_rellenados = None
+    if len(datos_prediccion) > 0:
+        try:
+            # Preparar datos para predicción
+            datos_pred_encoded = datos_prediccion[columnas_usar].copy()
+            
+            for col in columnas_usar:
+                if col in encoders:
+                    non_null_mask = datos_pred_encoded[col].notna()
+                    if non_null_mask.any():
+                        # Solo transformar valores que existen en el encoder
+                        valid_values = []
+                        for val in datos_pred_encoded.loc[non_null_mask, col]:
+                            try:
+                                encoded_val = encoders[col].transform([str(val)])[0]
+                                valid_values.append(encoded_val)
+                            except:
+                                valid_values.append(-1)  # Valor fuera del entrenamiento
+                        
+                        datos_pred_encoded.loc[non_null_mask, col] = valid_values
+            
+            # Hacer predicciones
+            predicciones = modelo.predict(datos_pred_encoded[columnas_usar])
+            
+            # Decodificar si es necesario
+            if columna_objetivo in encoders:
+                predicciones = encoders[columna_objetivo].inverse_transform(predicciones)
+            
+            # Crear DataFrame con resultados
+            datos_prediccion = datos_prediccion.copy()
+            datos_prediccion[columna_objetivo] = predicciones
+            valores_rellenados = datos_prediccion
+            
+        except Exception as e:
+            print(f"Advertencia: No se pudieron predecir valores faltantes: {e}")
+    
     return {
-        "arbol": arbol_raw,
-        "reglas": reglas,
+        "arbol": arbol_texto,
+        "reglas": reglas_legibles,
         "columnas_usadas": columnas_usar,
-        "valores_rellenados": valores_rellenados
+        "valores_rellenados": valores_rellenados,
+        "muestras_entrenamiento": len(datos_entrenamiento)
     }

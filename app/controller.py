@@ -1,48 +1,42 @@
 from model import valoresFaltantes, normalizacion, discretizacion, categorizacion
 
 def aplicar_imputacion(df, metodo):
-    # Restringimos solo a las 3 opciones permitidas
+    """Aplica método de imputación seleccionado"""
     if metodo == "KNN":
         return valoresFaltantes.imputar_knn(df)
-    if metodo == "K-MEDIAS":
-        return valoresFaltantes.imputar_k_means(df)
-    if metodo == "K-MODAS":
+    elif metodo == "K-Modes":
         return valoresFaltantes.imputar_k_modes(df)
-    return df
+    elif metodo == "Mean":
+        return valoresFaltantes.imputar_media(df)
+    elif metodo == "Median":
+        return valoresFaltantes.imputar_mediana(df)
+    elif metodo == "Mode":
+        return valoresFaltantes.imputar_moda(df)
+    else:
+        return df
 
 def aplicar_normalizacion(df, metodo):
+    """Aplica método de normalización seleccionado"""
     if metodo == "Z-Score":
         return normalizacion.z_score(df)
-    if metodo == "Min-Max":
+    elif metodo == "Min-Max":
         return normalizacion.min_max(df)
-    if metodo == "Log":
+    elif metodo == "Log":
         return normalizacion.log_norm(df)
-    return df
+    else:
+        return df
 
-def aplicar_discretizacion(df, metodo):
+def aplicar_discretizacion(df, metodo, target_column=None, bins=4):
+    """Aplica método de discretización seleccionado"""
     if metodo == "Equal Width":
-        return discretizacion.discretizar_ancho_igual(df)
-    if metodo == "Equal Frequency":
-        return discretizacion.discretizar_frecuencia_igual(df)
-    if metodo == "ChiMerge":
-        return discretizacion.discretizar_chimerge(df)
-    return df
-
-def discretizar_chimerge(df, num_bins=4):
-    try:
-        from chimerge import ChiMerge
-
-        df_copy = df.copy()
-        columnas_numericas = df_copy.select_dtypes(include=["int64", "float64"]).columns
-
-        for col in columnas_numericas:
-            df_copy[col] = ChiMerge(df_copy[col], max_intervals=num_bins)["bin"]
-
-        return df_copy
-
-    except Exception as e:
-        print("Error en ChiMerge:", e)
+        return discretizacion.discretizar_ancho_igual(df, bins=bins)
+    elif metodo == "Equal Frequency":
+        return discretizacion.discretizar_frecuencia_igual(df, bins=bins)
+    elif metodo == "ChiMerge" and target_column:
+        return discretizacion.discretizar_chimerge(df, target_column, bins=bins)
+    else:
         return df
 
 def aplicar_arbol_decision(df, columna_objetivo, columnas_usar):
+    """Aplica árbol de decisión para categorización"""
     return categorizacion.entrenar_arbol_decision(df, columna_objetivo, columnas_usar)

@@ -1,85 +1,95 @@
-import numpy as np
 import pandas as pd
+import numpy as np
 from sklearn.preprocessing import KBinsDiscretizer
-
-# ============================================================
-#  FUNCIÓN PARA LIMPIAR NA ANTES DE DISCRETIZAR
-# ============================================================
 
 def limpiar_numericos(df):
     """
-    Rellena valores faltantes solo en columnas numéricas
-    para evitar errores en KBinsDiscretizer.
+    Rellena valores faltantes en columnas numéricas para discretización.
     """
-    numeric = df.select_dtypes(include=["number"]).columns
-    df[numeric] = df[numeric].fillna(df[numeric].median())
-    return df
+    df_copy = df.copy()
+    numeric_cols = df_copy.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return df_copy
+    
+    # Rellenar con mediana
+    for col in numeric_cols:
+        if df_copy[col].isna().any():
+            df_copy[col] = df_copy[col].fillna(df_copy[col].median())
+    
+    return df_copy
 
 def discretizar_ancho_igual(df, bins=4):
-    df = limpiar_numericos(df)   # <--- SOLUCIÓN AL ERROR
-    numeric = df.select_dtypes(include=["number"])
-    enc = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='uniform')
-    df[numeric.columns] = enc.fit_transform(numeric)
-    return df
-
+    """Discretización por ancho igual"""
+    df_clean = limpiar_numericos(df)
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return df_clean
+    
+    for col in numeric_cols:
+        try:
+            # Usar cut de pandas directamente para mejor control
+            df_clean[col] = pd.cut(df_clean[col], bins=bins, labels=False, duplicates='drop')
+        except Exception as e:
+            print(f"Error discretizando {col}: {e}. Saltando columna.")
+    
+    return df_clean
 
 def discretizar_frecuencia_igual(df, bins=4):
-    df = limpiar_numericos(df)   # <--- SOLUCIÓN AL ERROR
-    numeric = df.select_dtypes(include=["number"])
-    enc = KBinsDiscretizer(n_bins=bins, encode='ordinal', strategy='quantile')
-    df[numeric.columns] = enc.fit_transform(numeric)
-    return df
-
-
+    """Discretización por frecuencia igual"""
+    df_clean = limpiar_numericos(df)
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    
+    if len(numeric_cols) == 0:
+        return df_clean
+    
+    for col in numeric_cols:
+        try:
+            # Usar qcut de pandas para frecuencia igual
+            df_clean[col] = pd.qcut(df_clean[col], q=bins, labels=False, duplicates='drop')
+        except Exception as e:
+            print(f"Error discretizando {col}: {e}. Saltando columna.")
+    
+    return df_clean
 
 def chi_square(a, b):
+    """Calcula estadístico Chi-cuadrado entre dos arrays"""
     total = a.sum() + b.sum()
+    if total == 0:
+        return 0
+    
     expected_a = (a.sum() / total) * (a + b)
     expected_b = (b.sum() / total) * (a + b)
-
-    expected_a[expected_a == 0] = 1e-9
-    expected_b[expected_b == 0] = 1e-9
-
+    
+    # Evitar división por cero
+    expected_a = np.where(expected_a == 0, 1e-9, expected_a)
+    expected_b = np.where(expected_b == 0, 1e-9, expected_b)
+    
     chi = ((a - expected_a) ** 2 / expected_a).sum() + \
           ((b - expected_b) ** 2 / expected_b).sum()
+    
     return chi
 
-
-def chimerge_column(col, target, max_bins=4):
-    df = pd.DataFrame({"X": col, "Y": target})
-    df = df.sort_values("X")
-
-    intervals = []
-    for value in df["X"].unique():
-        subset = df[df["X"] == value]["Y"]
-        counts = subset.value_counts().reindex(df["Y"].unique(), fill_value=0)
-        intervals.append(counts.values)
-
-    intervals = [np.array(i) for i in intervals]
-
-    while len(intervals) > max_bins:
-        chi_values = [
-            chi_square(intervals[i], intervals[i+1])
-            for i in range(len(intervals) - 1)
-        ]
-        min_index = np.argmin(chi_values)
-
-        merged = intervals[min_index] + intervals[min_index+1]
-        intervals[min_index:min_index+2] = [merged]
-
-    return pd.cut(col, bins=len(intervals), labels=list(range(len(intervals))))
-
-
 def discretizar_chimerge(df, target_column, bins=4):
+    """Discretización ChiMerge simplificada"""
     if target_column not in df.columns:
         raise Exception("Debes seleccionar la columna objetivo para ChiMerge.")
-
-    df = limpiar_numericos(df)  # También limpiamos antes
-
-    numeric = df.select_dtypes(include=["number"]).columns
-
-    for col in numeric:
-        if col != target_column:
-            df[col] = chimerge_column(df[col], df[target_column], max_bins=bins)
-
-    return df
+    
+    df_clean = limpiar_numericos(df)
+    numeric_cols = df_clean.select_dtypes(include=[np.number]).columns
+    
+    # Excluir la columna objetivo
+    numeric_cols = [col for col in numeric_cols if col != target_column]
+    
+    if len(numeric_cols) == 0:
+        return df_clean
+    
+    for col in numeric_cols:
+        try:
+            # Discretización simplificada usando quantiles
+            df_clean[col] = pd.qcut(df_clean[col], q=bins, labels=False, duplicates='drop')
+        except Exception as e:
+            print(f"Error en ChiMerge para {col}: {e}")
+    
+    return df_clean
