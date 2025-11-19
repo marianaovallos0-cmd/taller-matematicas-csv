@@ -61,6 +61,26 @@ if archivo is not None:
             except Exception as e:
                 st.error(f"❌ Error durante la imputación: {e}")
 
+    # ---- 4. Normalización ----
+    elif opcion == "Normalización":
+        metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
+
+        if st.button("Aplicar normalización"):
+            try:
+                resultado = aplicar_normalizacion(df.copy(), metodo)
+                st.subheader("Resultado")
+                st.dataframe(resultado)
+
+                csv = resultado.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "Descargar resultado (CSV)",
+                    data=csv,
+                    file_name="resultado_normalizacion.csv",
+                    mime="text/csv"
+                )
+            except Exception as e:
+                st.error(f"❌ Error durante la normalización: {e}")
+
     # ---- 5. Discretización ----
     elif opcion == "Discretización":
         metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
@@ -82,7 +102,7 @@ if archivo is not None:
                 st.error(f"❌ Error durante la discretización: {e}")
 
     # ---- 6. Árbol de decisión ----
-    if opcion == "Árbol de decisión":
+    elif opcion == "Árbol de decisión":
         st.subheader("1. Selecciona la variable objetivo")
         columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
 
