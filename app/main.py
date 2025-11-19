@@ -34,13 +34,33 @@ if archivo is not None:
 
     # ---- 3. Relleno ----
     if opcion == "Relleno de valores faltantes":
-        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
+        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "K-Means"])
+    
+        # Parámetros específicos para cada método
+        if metodo == "KNN":
+            vecinos = st.slider("Número de vecinos (K):", 1, 10, 3)
+        elif metodo == "K-Means":
+            clusters = st.slider("Número de clusters:", 2, 10, 3)
 
         if st.button("Aplicar relleno"):
             try:
-                resultado = aplicar_imputacion(df.copy(), metodo)
+                if metodo == "KNN":
+                    resultado = aplicar_imputacion(df.copy(), metodo)  # Se pasan parámetros si es necesario
+                elif metodo == "K-Means":
+                    resultado = aplicar_imputacion(df.copy(), metodo)
+                else:
+                    resultado = aplicar_imputacion(df.copy(), metodo)
+                
                 st.subheader("Resultado")
                 st.dataframe(resultado)
+
+                # Mostrar estadísticas de valores imputados
+                st.subheader("Resumen de imputación")
+                for col in df.columns:
+                    original_nulls = df[col].isnull().sum()
+                    nuevos_nulls = resultado[col].isnull().sum()
+                    if original_nulls > 0:
+                        st.write(f"**{col}:** {original_nulls} → {nuevos_nulls} valores faltantes")
 
                 csv = resultado.to_csv(index=False).encode('utf-8')
                 st.download_button(
