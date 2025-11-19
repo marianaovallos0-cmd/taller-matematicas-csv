@@ -1,16 +1,13 @@
 from model import valoresFaltantes, normalizacion, discretizacion, categorizacion
 
 def aplicar_imputacion(df, metodo):
+    # Restringimos solo a las 3 opciones permitidas
     if metodo == "KNN":
         return valoresFaltantes.imputar_knn(df)
-    if metodo == "K-Modes":
+    if metodo == "K-MEDIAS":
+        return valoresFaltantes.imputar_k_means(df)
+    if metodo == "K-MODAS":
         return valoresFaltantes.imputar_k_modes(df)
-    if metodo == "Mean":
-        return valoresFaltantes.imputar_media(df)
-    if metodo == "Median":
-        return valoresFaltantes.imputar_mediana(df)
-    if metodo == "Mode":
-        return valoresFaltantes.imputar_moda(df)
     return df
 
 def aplicar_normalizacion(df, metodo):
@@ -36,8 +33,6 @@ def discretizar_chimerge(df, num_bins=4):
         from chimerge import ChiMerge
 
         df_copy = df.copy()
-
-        # Aplica ChiMerge SOLO a columnas numéricas
         columnas_numericas = df_copy.select_dtypes(include=["int64", "float64"]).columns
 
         for col in columnas_numericas:

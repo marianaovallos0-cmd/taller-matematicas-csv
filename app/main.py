@@ -27,91 +27,97 @@ if archivo is not None:
     st.dataframe(df)
 
     # ---- 2. Elegir operación ----
-    st.subheader("Seleccione la operación")
-    opcion = st.selectbox(
-        "¿Qué quieres hacer?",
-        ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
+st.subheader("Seleccione la operación")
+opcion = st.selectbox(
+    "¿Qué quieres hacer?",
+    ["Relleno de valores faltantes", "Normalización", "Discretización", "Árbol de decisión"]
+)
+
+# ---- 3. Relleno de valores faltantes ----
+if opcion == "Relleno de valores faltantes":
+    metodo = st.selectbox("Método:", ["KNN", "K-MEDIAS", "K-MODAS"])
+
+    if st.button("Aplicar relleno"):
+        try:
+            resultado = aplicar_imputacion(df.copy(), metodo)
+            st.subheader("Resultado")
+            st.dataframe(resultado)
+
+            csv = resultado.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Descargar resultado (CSV)",
+                data=csv,
+                file_name="resultado_imputacion.csv",
+                mime="text/csv"
+            )
+
+        except Exception as e:
+            st.error(f"❌ Error durante la imputación: {e}")
+
+# ---- 4. Normalización ----
+elif opcion == "Normalización":
+    metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
+
+    if st.button("Aplicar normalización"):
+        try:
+            resultado = aplicar_normalizacion(df.copy(), metodo)
+            st.subheader("Resultado")
+            st.dataframe(resultado)
+
+            csv = resultado.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Descargar resultado (CSV)",
+                data=csv,
+                file_name="resultado_normalizacion.csv",
+                mime="text/csv"
+            )
+
+        except Exception as e:
+            st.error(f"❌ Error durante la normalización: {e}")
+
+# ---- 5. Discretización ----
+elif opcion == "Discretización":
+    metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency", "ChiMerge"])
+
+    if st.button("Aplicar discretización"):
+        try:
+            resultado = aplicar_discretizacion(df.copy(), metodo)
+            st.subheader("Resultado")
+            st.dataframe(resultado)
+
+            csv = resultado.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "Descargar resultado (CSV)",
+                data=csv,
+                file_name="resultado_discretizacion.csv",
+                mime="text/csv"
+            )
+
+        except Exception as e:
+            st.error(f"❌ Error durante la discretización: {e}")
+
+# ---- 6. Árbol de decisión ----
+if opcion == "Árbol de decisión":
+
+    st.subheader("1. Selecciona la variable objetivo")
+    columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
+
+    st.subheader("2. Selecciona las columnas que SÍ quieres usar")
+    columnas_disponibles = [c for c in df.columns if c != columna_objetivo]
+    columnas_seleccionadas = st.multiselect(
+        "Columnas predictoras:",
+        columnas_disponibles,
+        default=columnas_disponibles
     )
 
-    # ---- 3. Relleno de valores faltantes ----
-    if opcion == "Relleno de valores faltantes":
-        metodo = st.selectbox("Método:", ["KNN", "K-Modes", "Mean", "Median", "Mode"])
-
-        if st.button("Aplicar relleno"):
-            try:
-                resultado = aplicar_imputacion(df.copy(), metodo)
-                st.subheader("Resultado")
-                st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_imputacion.csv",
-                    mime="text/csv"
-                )
-
-            except Exception as e:
-                st.error(f"❌ Error durante la imputación: {e}")
-
-    # ---- 4. Normalización ----
-    elif opcion == "Normalización":
-        metodo = st.selectbox("Método:", ["Z-Score", "Min-Max", "Log"])
-
-        if st.button("Aplicar normalización"):
-            try:
-                resultado = aplicar_normalizacion(df.copy(), metodo)
-                st.subheader("Resultado")
-                st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_normalizacion.csv",
-                    mime="text/csv"
-                )
-
-            except Exception as e:
-                st.error(f"❌ Error durante la normalización: {e}")
-
-    # ---- 5. Discretización ----
-    elif opcion == "Discretización":
-        metodo = st.selectbox("Método:", ["Equal Width", "Equal Frequency"])
-
-        if st.button("Aplicar discretización"):
-            try:
-                resultado = aplicar_discretizacion(df.copy(), metodo)
-                st.subheader("Resultado")
-                st.dataframe(resultado)
-
-                csv = resultado.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    "Descargar resultado (CSV)",
-                    data=csv,
-                    file_name="resultado_discretizacion.csv",
-                    mime="text/csv"
-                )
-
-            except Exception as e:
-                st.error(f"❌ Error durante la discretización: {e}")
-
-    # ---- 6. Árbol de decisión ----
-    if opcion == "Árbol de decisión":
-
-        st.subheader("1. Selecciona la variable objetivo")
-        columna_objetivo = st.selectbox("Objetivo (y):", df.columns)
-
-        st.subheader("2. Selecciona las columnas que SÍ quieres usar")
-        columnas_disponibles = [c for c in df.columns if c != columna_objetivo]
-        columnas_seleccionadas = st.multiselect(
-            "Columnas predictoras:",
-            columnas_disponibles,
-            default=columnas_disponibles
-        )
-
-        if st.button("Entrenar árbol"):
-            try:
+    if st.button("Entrenar árbol"):
+        try:
+            # Validación extra: que las columnas seleccionadas sean válidas (evita edición maliciosa)
+            if any(c not in df.columns for c in columnas_seleccionadas):
+                st.error("Has seleccionado columnas inválidas. Selección reiniciada.")
+            elif len(columnas_seleccionadas) == 0:
+                st.error("Selecciona al menos una columna predictora.")
+            else:
                 resultado = aplicar_arbol_decision(
                     df.copy(),
                     columna_objetivo,
@@ -129,10 +135,9 @@ if archivo is not None:
                 st.subheader("Reglas legibles")
                 st.code(resultado["reglas"], language="text")
 
-                # --- Mostrar tabla con valores rellenados ---
                 if resultado["valores_rellenados"] is not None:
                     st.subheader("Valores faltantes rellenados")
                     st.dataframe(resultado["valores_rellenados"])
 
-            except Exception as e:
-                st.error(f"Error al entrenar el árbol: {e}")
+        except Exception as e:
+            st.error(f"Error al entrenar el árbol: {e}")
