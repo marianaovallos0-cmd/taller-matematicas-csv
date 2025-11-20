@@ -10,14 +10,20 @@ _VALORES_INVALIDOS = {"?"}
 def _limpiar_valores_invalidos(df: pd.DataFrame):
     """
     Reemplaza los valores inválidos por NaN y detecta si hubo alguno.
+    Convierte None de Python a np.nan para poder imputar.
     """
     df_copy = df.copy()
-    df_str = df_copy.astype(str)
 
-    mask_invalidos = df_str.applymap(lambda x: x.strip() in _VALORES_INVALIDOS)
+    # Convertir None (Python) a np.nan
+    df_copy = df_copy.where(df_copy.notnull(), np.nan)
+
+    # Convertir strings a str para detectar '?'
+    df_str = df_copy.astype(str)
+    mask_invalidos = df_str.applymap(lambda x: x.strip() == "?")
 
     hubo_error = mask_invalidos.any().any()
 
+    # Reemplazar '?' por NaN
     df_copy = df_copy.mask(mask_invalidos, np.nan)
 
     return df_copy, hubo_error
