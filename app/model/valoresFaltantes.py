@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 from sklearn.impute import KNNImputer
 
-# Valores inválidos a detectar
-_VALORES_INVALIDOS = {"?", "¿", "NA", "N/A", "null", "None", "none", "-", ""}
+# Solo '?' se considera inválido
+_VALORES_INVALIDOS = {"?"}
 
 
 def _limpiar_valores_invalidos(df: pd.DataFrame):
@@ -27,10 +27,7 @@ def _respuesta_error():
     """
     Mensaje EXACTO que pediste, sin filas ni detalles adicionales.
     """
-    return (
-        "No pongas caracteres especiales como '?', 'NA', '-', etc. "
-        "Deja los valores faltantes vacíos."
-    )
+    return "No pongas el carácter '?'. Deja los valores faltantes vacíos."
 
 
 def imputar_knn(df: pd.DataFrame, vecinos: int = 3):
